@@ -22,7 +22,7 @@ fn void! main(String[] args) {
 
 			case arg.is(VALUE):
 				if (!thing.has_value) {
-					thing = { .value = arg.value(), .has_value = true };
+					thing = { .value = arg.value, .has_value = true };
 				}
 
 			case arg.is(LONG, "help"):

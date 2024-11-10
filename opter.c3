@@ -8,33 +8,123 @@
 // - short -abc
 // - options with optional arguments
 // - options with multiple arguments
+// - errors using Opter.diagnostic
+// - Arg.values
 
 module opter;
+import std::collections::list;
+
+def ValueList = List(<String>);
 
 struct Opter {
 	String[] args;
-	int curr;
+	ulong idx_args;
+	ulong idx_arg; // for multiple chars
 }
 
 fn void Opter.init(&opter, String[] args) {
 	opter.args = args;
 }
 
-fn Arg! Opter.next(&opter) {
+fn Arg! Opter.next(&o) {
+	// Valid end of args
+	if (o.idx_args == o.args.len) return OpterStop.END?;
+
+	String curr_arg = o.args[o.idx_args];
 	Arg arg;
+	switch (o.idx_arg) {
+		// At beginning of curr_arg
+		case 0:
+			switch {
+				// LONG at beginning of arg
+				case curr_arg[0:2] == "--":
+					// Valid end of args
+					if (curr_arg.len == 2) return OpterStop.END?;
+					arg.type = LONG;
+					o.idx_arg = curr_arg.index_of_char('=') ?? curr_arg.len;
+					// TODO disallow = directly after --?
+					arg.long_name = curr_arg[3..o.idx_arg - 1];
+					if (o.idx_arg < curr_arg.len) {
+						o.idx_args += 1;
+						o.idx_arg = 0;
+					};
+
+				// SHORT at beginning of arg
+				case curr_arg[0] == '-':
+					// TODO report. Dash followed by space not allowed.
+					if (curr_arg.len == 1) return OpterStop.END?;
+					arg.type = SHORT;
+					arg.short_name = curr_arg[1];
+					if (curr_arg.len == 2) {
+						o.idx_args += 1;
+						o.idx_arg = 0;
+					} else {
+						o.idx_arg += 2;
+					}
+
+				// VALUE at beginning of arg
+				default:
+					arg.type = VALUE;
+					arg.value = curr_arg;
+					o.idx_args += 1;
+					o.idx_arg = 0;
+			}
+
+		// collected shorts in the middle of the arg
+		// If user wants a value following a short, they should call 'value()'
+		default:
+			// This state should be unreachable; if was at end of an arg, should have moved to the next
+			assert(o.idx_arg == curr_arg.len);
+			// TODO report. Cannot call 'next()' in the middle of a word which starts with
+			// a long; only 'value()' is allowed.
+			if (curr_arg[0:2] == "--") return OpterStop.END?;
+			arg.type = SHORT;
+			arg.short_name = curr_arg[1];
+			if (o.idx_arg == curr_arg.len - 1) {
+				o.idx_args += 1;
+				o.idx_arg = 0;
+			} else {
+				o.idx_arg += 1;
+			}
+	}
 	return arg;
 }
 
-fn String! Opter.value(&opter) {
-	return "";
+fn String! Opter.value(&o) {
+	// If in the middle of an arg, reads the rest of it.
+	// If at the beginning reads the entire thing.
+	String curr_arg = o.args[o.idx_args];
+	String res = curr_arg[o.idx_arg..];
+	o.idx_args += 1;
+	o.idx_arg = 0;
+	return res;
+}
+
+fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
+	// Cannot start in the middle of an arg (opt value without leading space)
+	// returns all args until the end, or the next arg starts with '-'
+	String curr_arg = o.args[o.idx_args];
+	if (curr_arg[0:2] == "--") return OpterStop.END?;
+
+	ValueList values;
+	values.push(curr_arg[o.idx_arg..]);
+	o.idx_args += 1;
+	o.idx_arg = 0;
+	while (o.idx_args < o.args.len) {
+		String curr_value = o.args[o.idx_args];
+		if (curr_value[0:2] == "--") break;
+		values.push(curr_value);
+		o.idx_args += 1;
+	}
+	return values;
 }
 
 struct Arg {
 	ArgType type;
 	union {
-		char arg_short;
-		String arg_long;
-		String arg_value;
+		char short_name;
+		String long_name;
+		String value;
 	}
 }
 
@@ -44,9 +134,24 @@ enum ArgType {
 	VALUE,
 }
 
-fn bool Arg.is(&arg, ArgType type, varargs...) { return true; }
-fn String Arg.value(&arg) { return ""; }
+macro bool Arg.is(&arg, ArgType type, varargs...) {
+	assert(varargs.len < 1);
+	switch (type) {
+		case SHORT: return arg.type == SHORT && (char)varargs[0] == arg.short_name;
+		case LONG: return arg.type == LONG && (String)varargs[0] == arg.long_name;
+		case VALUE:
+			assert(varargs.len == 0);
+			return arg.type == VALUE;
+	}
+}
 
+// Used only for stopping iteration next();
+fault OpterStop {
+	END,
+}
+
+// To be used in error diagnostic from Opter.diagnostic
 fault OpterError {
+	NONE,
 	UNEXPECTED_ARG,
 }
