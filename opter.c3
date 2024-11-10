@@ -134,15 +134,18 @@ enum ArgType {
 	VALUE,
 }
 
-macro bool Arg.is(&arg, ArgType type, varargs...) {
-	assert(varargs.len < 1);
-	switch (type) {
-		case SHORT: return arg.type == SHORT && (char)varargs[0] == arg.short_name;
-		case LONG: return arg.type == LONG && (String)varargs[0] == arg.long_name;
-		case VALUE:
-			assert(varargs.len == 0);
+macro bool Arg.is(&arg, ArgType $type, ...) {
+	$switch ($type)
+		$case SHORT:
+			$assert($vacount == 1);
+			return arg.type == SHORT && $vaexpr[0] == arg.short_name;
+		$case LONG:
+			$assert($vacount == 1);
+			return arg.type == LONG && $vaexpr[0] == arg.long_name;
+		$case VALUE:
+			$assert($vacount == 0);
 			return arg.type == VALUE;
-	}
+	$endswitch
 }
 
 // Used only for stopping iteration next();
