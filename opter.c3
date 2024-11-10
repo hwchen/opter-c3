@@ -24,6 +24,7 @@ struct Opter {
 
 fn void Opter.init(&opter, String[] args) {
 	opter.args = args;
+	opter.idx_args = 1;
 }
 
 fn Arg! Opter.next(&o) {
