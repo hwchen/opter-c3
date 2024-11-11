@@ -3,7 +3,7 @@ import std::collections::maybe;
 import std::io;
 import opter;
 
-fn void! main(String[] args) {
+fn int main(String[] args) {
 	Opter opter;
 	opter.init(args);
 
@@ -15,7 +15,7 @@ fn void! main(String[] args) {
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				number = opter.value()!.to_integer(uint)!;
+				number = opter.value()!!.to_integer(uint)!!;
 
 			case arg.is(LONG, "shout"):
 				shout = true;
@@ -27,9 +27,11 @@ fn void! main(String[] args) {
 
 			case arg.is(LONG, "help"):
 				io::printn("Usage: hello [-n|--number=NUM] [--shout] THING");
-				return;
+				return 0;
 
-			default: return OpterError.UNEXPECTED_ARG?;
+			default:
+				io::eprintfn("%s", arg.unexpected());
+				return 42;
 		}
 	}
 
@@ -43,5 +45,5 @@ fn void! main(String[] args) {
 	for (int i = 0; i < number; i += 1) {
 		io::printn(out);
 	}
-	return;
+	return 0;
 }

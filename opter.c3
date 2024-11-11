@@ -150,15 +150,17 @@ macro bool Arg.is(&arg, ArgType $type, ...) {
 	$endswitch
 }
 
+fn String Arg.unexpected(&arg, Allocator alloc = allocator::heap()) {
+	switch (arg.type) {
+		case SHORT: return string::format("Unexpected argument: -%c", arg.short_name, allocator: alloc);
+		case LONG: return string::format("Unexpected argument: --%s", arg.long_name, allocator: alloc);
+		case VALUE: return string::format("Unexpected argument: %s", arg.value, allocator: alloc);
+	}
+}
+
 // Used only for stopping iteration next();
 fault OpterStop {
 	END,
-}
-
-// To be used in error diagnostic from Opter.diagnostic
-fault OpterError {
-	NONE,
-	UNEXPECTED_ARG,
 }
 
 // Tests
