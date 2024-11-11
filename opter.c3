@@ -45,7 +45,7 @@ fn Arg! Opter.next(&o) {
 					arg.type = LONG;
 					o.idx_arg = curr_arg.index_of_char('=') ?? curr_arg.len;
 					// TODO disallow = directly after --?
-					arg.long_name = curr_arg[3..o.idx_arg - 1];
+					arg.long_name = curr_arg[2..o.idx_arg - 1];
 					if (o.idx_arg < curr_arg.len) {
 						o.idx_args += 1;
 						o.idx_arg = 0;
