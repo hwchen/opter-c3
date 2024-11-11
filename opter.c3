@@ -40,16 +40,16 @@ fn Arg! Opter.next(&o) {
 			switch {
 				// LONG at beginning of arg
 				case curr_arg[0:2] == "--":
-					// Valid end of args
+					// Valid end of args --
 					if (curr_arg.len == 2) return OpterStop.END?;
 					arg.type = LONG;
 					o.idx_arg = curr_arg.index_of_char('=') ?? curr_arg.len;
 					// TODO disallow = directly after --?
 					arg.long_name = curr_arg[2..o.idx_arg - 1];
-					if (o.idx_arg < curr_arg.len) {
+					if (o.idx_arg == curr_arg.len) {
 						o.idx_args += 1;
 						o.idx_arg = 0;
-					};
+					}
 
 				// SHORT at beginning of arg
 				case curr_arg[0] == '-':
@@ -59,7 +59,6 @@ fn Arg! Opter.next(&o) {
 					arg.short_name = curr_arg[1];
 					if (curr_arg.len == 2) {
 						o.idx_args += 1;
-						o.idx_arg = 0;
 					} else {
 						o.idx_arg += 2;
 					}
@@ -69,7 +68,6 @@ fn Arg! Opter.next(&o) {
 					arg.type = VALUE;
 					arg.value = curr_arg;
 					o.idx_args += 1;
-					o.idx_arg = 0;
 			}
 
 		// collected shorts in the middle of the arg
@@ -235,7 +233,7 @@ fn void test_short_then_another() @test {
 }
 
 fn void test_long_then_another() @test {
-	String[] input = { "test", "--foo" "--bar" };
+	String[] input = { "test", "--foo", "--bar" };
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
@@ -244,7 +242,7 @@ fn void test_long_then_another() @test {
 }
 
 fn void test_positional_then_another() @test {
-	String[] input = { "test", "foo" "bar" };
+	String[] input = { "test", "foo", "bar" };
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
