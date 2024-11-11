@@ -15,19 +15,6 @@ fn int main(String[] args) {
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				// TODO the error returned by value doesn't fit nicely with the error
-				// system I want to use, which will check opter.diagnostics. It's not
-				// great to have two paths for errors. lexopt uses
-				// `if let Some(arg) = parser.next()? {` so all errors are bubbled up.
-				// but here, the natural thing is to have value() bubble up and have
-				// next errors not bubble up. Check advanced err handling, maybe there's
-				// a try-catch kind of situation.
-				//
-				// Also I want to have the diagnostics system, because I can't return error
-				// messages through `!`. maybe that means it's ok to throw from value, becuase
-				// the error should also be handled on the spot.
-				//
-				// But what if I want to parse cli in a fn? How are the errors returned?
 				number = opter.value()!!.to_integer(uint)!!;
 
 			case arg.is(LONG, "shout"):

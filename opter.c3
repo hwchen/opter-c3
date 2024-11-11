@@ -11,6 +11,31 @@
 // - errors using Opter.diagnostic
 // - TODO test all errors
 
+// === Error Handling ===
+//
+// It's a bit more manual than something like Rust's lexopt, which creates errors in the
+// parser and just bubbles them up on each function call `next()` or `value()`, etc.
+//
+// Instead, Opter methods will just issue an END Fault if there's any reason to stop, whether
+// it's the happy path or the error path. And then it's up to the user to check diagnostics
+// for the error code or error message.
+//
+// Sending out errors through a separate check on diagnostics is the only way to have better
+// error messages (otherwise it would only be error codes). So all methods on Opter do this,
+// even if it might seem easier to return a more descriptive error directly. For example,
+// Opter.value() could directly return a NO_MORE_ARGS instead of a STOP. But it would split
+// error handling paths (as the user would be tempted to just bubble it up with `!`), and
+// it's not a good enough error to provide needed context for end-users anyways.
+//
+// The most important point for returning good error messages is to avoid bubbling up CLI errors
+// to `fn void! main(String[] args)`. Instead, use `fn int main(String[] args)` and handle printing
+// error messages in the body.
+// 
+// TODO:
+// - patterns for handling errors when encapsulating CLI parsing in a function.
+// - patterns for turning all errors during parsing into an OpterError, and handling those in one place.
+//     (uses Opter.make_err()?)
+
 module opter;
 import std::collections::list;
 import std::core::string;
