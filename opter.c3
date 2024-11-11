@@ -13,6 +13,7 @@
 
 module opter;
 import std::collections::list;
+import std::core::string;
 
 def ValueList = List(<String>);
 
@@ -158,4 +159,34 @@ fault OpterStop {
 fault OpterError {
 	NONE,
 	UNEXPECTED_ARG,
+}
+
+// Tests
+
+fn void assert_arg(Arg found, Arg expected) @private {
+	assert(found.type == expected.type, "Found %s, expected %s", found.type, expected.type);
+	switch (found.type) {
+		case SHORT:
+			assert(found.short_name == expected.short_name, "Found %s, expected %s", found.short_name, expected.short_name);
+		case LONG:
+			assert(found.long_name == expected.long_name, "Found %s, expected %s", found.long_name, expected.value);
+		case VALUE:
+			assert(found.value == expected.value, "Found %s, expected %s", found.value, expected.value);
+	}
+}
+
+fn void test_short_no_value() @test {
+	String[] input = { "test", "-n" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_long_no_value() @test {
+	String[] input = { "test", "--number" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "number" });
+	assert(!@ok(opter.next()));
 }
