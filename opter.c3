@@ -5,8 +5,8 @@
 // - positional args
 // - options with multiple arguments
 // - -- marks the end of options
-
 // - ' ' or = or (unseparated short) for opt-value separator
+
 // - short -abc
 // - errors using Opter.diagnostic
 // - TODO test all errors
@@ -220,11 +220,46 @@ fn void test_short_with_value_no_separator() @test {
 	assert(!@ok(opter.next()));
 }
 
+fn void test_short_with_value_eq_separator() @test {
+	String[] input = { "test", "-n=one"};
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert(opter.value()!!, "one");
+	assert(!@ok(opter.next()));
+}
+
 fn void test_long_no_value() @test {
 	String[] input = { "test", "--number" };
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "number" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_long_no_value_calls_value() @test {
+	String[] input = { "test", "--foo" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert(!@ok(opter.value()));
+}
+
+fn void test_long_with_value() @test {
+	String[] input = { "test", "--foo", "one"};
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert(opter.value()!!, "one");
+	assert(!@ok(opter.next()));
+}
+
+fn void test_long_with_value_eq_separator() @test {
+	String[] input = { "test", "--foo=one"};
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert(opter.value()!!, "one");
 	assert(!@ok(opter.next()));
 }
 
