@@ -15,7 +15,18 @@ fn int main(String[] args) {
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				number = opter.value()!!.to_integer(uint)!!;
+				// There's two possible error messages that can be set here:
+				// - value()
+				// - err_custom_message()
+				// Opter will keep the first one set, which will then be reported
+				// when the loop is broken out of.
+				// Note that you could handle the error from to_integer separately,
+				// but passing it into Opter allows for more context to be reported.
+				uint! number_parsed = opter.value().to_integer(uint);
+				if (catch err = number_parsed) {
+					opter.err_custom_message("Error parsing: %s", err);
+				}
+				number = number_parsed;
 
 			case arg.is(LONG, "shout"):
 				shout = true;
@@ -30,9 +41,15 @@ fn int main(String[] args) {
 				return 0;
 
 			default:
-				io::eprintfn("%s", arg.unexpected());
-				return 42;
+				opter.err_unexpected_arg());
 		}
+	}
+
+	// Note that if you don't handle the error here, it's possible to continue with junk values,
+	// as Opter is not designed to early-return using `!` on methods.
+	if (opter.error_type != NONE) {
+		io::eprintfn("CLI Error: %s", opter.error_message);
+		return 1;
 	}
 
 	io::eprintfn("number: %d", number);
