@@ -8,7 +8,6 @@
 // - ' ' or = or (unseparated short) for opt-value separator
 // - short -abc
 
-// - test values: in middle of word, returns to end of word.
 // - TODO test all errors
 // - test unexpected args in example
 // - test no more value(s)
@@ -406,13 +405,13 @@ fn void test_long_values() @test {
 	assert(!@ok(opter.next()));
 }
 
-// values should not start in the middle of a word
+// values can start in the middle of a word, but will only go to end of that word
 fn void test_values_starting_condition() @test {
 	String[] input = { "test", "-fbar", "baz", "one" };
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
-	assert(!@ok(opter.values()));
+	assert(opter.values()!!.array_view() == { "bar" });
 }
 
 fn void test_positional_end_mark() @test {
