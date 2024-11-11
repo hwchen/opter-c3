@@ -6,8 +6,8 @@
 // - options with multiple arguments
 // - -- marks the end of options
 // - ' ' or = or (unseparated short) for opt-value separator
-
 // - short -abc
+
 // - errors using Opter.diagnostic
 // - TODO test all errors
 
@@ -81,7 +81,7 @@ fn Arg! Opter.next(&o) {
 			// a long; only 'value()' is allowed.
 			if (curr_arg[0:2] == "--") return OpterStop.END?;
 			arg.type = SHORT;
-			arg.short_name = curr_arg[1];
+			arg.short_name = curr_arg[o.idx_arg];
 			if (o.idx_arg == curr_arg.len - 1) {
 				o.idx_args += 1;
 				o.idx_arg = 0;
