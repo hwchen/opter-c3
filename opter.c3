@@ -224,3 +224,30 @@ fn void test_positional() @test {
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .long_name = "thing" });
 	assert(!@ok(opter.next()));
 }
+
+fn void test_short_then_another() @test {
+	String[] input = { "test", "-n", "-o"};
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'o' });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_long_then_another() @test {
+	String[] input = { "test", "--foo" "--bar" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "bar" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_positional_then_another() @test {
+	String[] input = { "test", "foo" "bar" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
+	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "bar" });
+	assert(!@ok(opter.next()));
+}
