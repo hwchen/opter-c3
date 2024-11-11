@@ -2,14 +2,14 @@
 // Supports:
 // - short opts
 // - long opts
-// - -- marks the end of options
 // - positional args
+// - options with optional arguments
+
+// - -- marks the end of options
 // - ' ' or = or unseparated for opt-value separator
 // - short -abc
-// - options with optional arguments
 // - options with multiple arguments
 // - errors using Opter.diagnostic
-// - Arg.values
 
 module opter;
 import std::collections::list;
@@ -247,5 +247,49 @@ fn void test_positional_then_another() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "bar" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_values_basic() @test {
+	String[] input = { "test", "foo", "bar" };
+	Opter opter;
+	opter.init(input);
+	assert(opter.values()!!.array_view() == { "foo", "bar" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_values_then_short() @test {
+	String[] input = { "test", "foo", "bar", "-a" };
+	Opter opter;
+	opter.init(input);
+	assert(opter.values()!!.array_view() == { "foo", "bar" });
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'a' });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_values_then_long() @test {
+	String[] input = { "test", "foo", "bar", "--baz" };
+	Opter opter;
+	opter.init(input);
+	assert(opter.values()!!.array_view() == { "foo", "bar" });
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "baz" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_short_values() @test {
+	String[] input = { "test", "-f", "bar", "baz" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
+	assert(opter.values()!!.array_view() == { "bar", "baz" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_long_values() @test {
+	String[] input = { "test", "--foo", "bar", "baz" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert(opter.values()!!.array_view() == { "bar", "baz" });
 	assert(!@ok(opter.next()));
 }
