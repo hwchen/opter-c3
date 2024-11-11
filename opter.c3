@@ -15,6 +15,7 @@
 module opter;
 import std::collections::list;
 import std::core::string;
+import std::io;
 
 def ValueList = List(<String>);
 
@@ -209,6 +210,15 @@ fn void test_short_with_value() @test {
 	assert(!@ok(opter.next()));
 }
 
+fn void test_short_with_value_no_separator() @test {
+	String[] input = { "test", "-none"};
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert(opter.value()!!, "one");
+	assert(!@ok(opter.next()));
+}
+
 fn void test_long_no_value() @test {
 	String[] input = { "test", "--number" };
 	Opter opter;
@@ -294,4 +304,13 @@ fn void test_long_values() @test {
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(opter.values()!!.array_view() == { "bar", "baz" });
 	assert(!@ok(opter.next()));
+}
+
+// values should not start in the middle of a word
+fn void test_values_starting_condition() @test {
+	String[] input = { "test", "-fbar", "baz", "one" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
+	assert(!@ok(opter.values()));
 }
