@@ -10,6 +10,10 @@
 
 // - errors using Opter.diagnostic
 // - TODO test all errors
+// - test unexpected args in example
+// - test no more value(s)
+// - what if `value` is called in a loop? it won't be able to escape, as there's no
+//     external indication there's an error.
 
 // === Error Handling ===
 //
@@ -30,6 +34,9 @@
 // The most important point for returning good error messages is to avoid bubbling up CLI errors
 // to `fn void! main(String[] args)`. Instead, use `fn int main(String[] args)` and handle printing
 // error messages in the body.
+//
+// Note: after errors are set on Opter, any method will return END/STOP, that way the loop for checking
+// `next()` will break.
 // 
 // TODO:
 // - patterns for handling errors when encapsulating CLI parsing in a function.
@@ -47,14 +54,19 @@ struct Opter {
 	String[] args;
 	ulong idx_args;
 	ulong idx_arg; // for multiple chars and non-space separator
+	OpterError error_type;
+	String error_message;
 }
 
 fn void Opter.init(&opter, String[] args) {
 	opter.args = args;
 	opter.idx_args = 1;
+	opter.idx_arg = 0;
+	opter.error_type = NONE;
 }
 
 fn Arg! Opter.next(&o) {
+	if (o.error_type != OpterError.NONE) return OpterStop.END?;
 	// Valid end of args
 	if (o.idx_args == o.args.len) return OpterStop.END?;
 
@@ -121,7 +133,10 @@ fn Arg! Opter.next(&o) {
 // -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
 fn String! Opter.value(&o) {
 	// Error if there's no more words to read.
-	if (o.idx_args >= o.args.len) return OpterStop.END?;
+	if (o.idx_args >= o.args.len) {
+		o.make_err(INTERNAL, "No more values after arg");
+		return OpterStop.END?;
+	}
 
 	// If in the middle of an arg, reads the rest of it.
 	// If at the beginning reads the entire thing.
@@ -152,6 +167,32 @@ fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
 	return values;
 }
 
+// Used only for stopping iteration next();
+fault OpterStop {
+	END,
+}
+
+fault OpterError {
+	NONE,
+	INTERNAL,
+	CUSTOM,
+}
+
+fn void Opter.err_unexpected_arg(&o) {
+	// TODO is heap allocator always ok? Assume cli will exit immediately after anyways
+	// refers to the arg that was just parsed
+	o.make_err(INTERNAL, string::format("found unexpected argument: %s", o.args[o.idx_args - 1], allocator: allocator::heap()));
+}
+
+fn void Opter.err_custom_message(&o, String msg) {
+	o.make_err(CUSTOM, msg);
+}
+
+fn void Opter.make_err(&o, OpterError error_type, String error_message) {
+	o.error_type = error_type;
+	o.error_message = string::format("Error at arg %s: %s", o.args[o.idx_args - 1], error_message");
+}
+
 struct Arg {
 	ArgType type;
 	union {
@@ -179,23 +220,6 @@ macro bool Arg.is(&arg, ArgType $type, ...) {
 			$assert($vacount == 0);
 			return arg.type == VALUE;
 	$endswitch
-}
-
-fn String Arg.unexpected(&arg, Allocator alloc = allocator::heap()) {
-	switch (arg.type) {
-		case SHORT: return string::format("Unexpected argument: -%c", arg.short_name, allocator: alloc);
-		case LONG: return string::format("Unexpected argument: --%s", arg.long_name, allocator: alloc);
-		case VALUE: return string::format("Unexpected argument: %s", arg.value, allocator: alloc);
-	}
-}
-
-// Used only for stopping iteration next();
-fault OpterStop {
-	END,
-}
-
-fault OpterError {
-	NO_MORE_ARGS, // from Arg.value()
 }
 
 // Tests
