@@ -10,6 +10,7 @@
 // - short -abc
 // - options with multiple arguments
 // - errors using Opter.diagnostic
+// - TODO test all errors
 
 module opter;
 import std::collections::list;
@@ -115,7 +116,8 @@ fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
 	o.idx_arg = 0;
 	while (o.idx_args < o.args.len) {
 		String curr_value = o.args[o.idx_args];
-		if (curr_value[0:2] == "--") break;
+		// breaks on short or long flag
+		if (curr_value[0] == '-') break;
 		values.push(curr_value);
 		o.idx_args += 1;
 	}
