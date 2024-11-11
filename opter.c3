@@ -108,8 +108,8 @@ fn String! Opter.value(&o) {
 fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
 	// Cannot start in the middle of an arg (opt value without leading space)
 	// returns all args until the end, or the next arg starts with '-'
+	if (o.idx_arg != 0) return OpterStop.END?;
 	String curr_arg = o.args[o.idx_args];
-	if (curr_arg[0:2] == "--") return OpterStop.END?;
 
 	ValueList values;
 	values.push(curr_arg[o.idx_arg..]);
