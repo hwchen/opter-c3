@@ -189,22 +189,22 @@ fn String Opter.last_processed_arg(&o) {
 
 fn void Opter.write_err_unexpected_arg(&o, OutStream out = io::stdout()) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Found unexpected argument: %s", arg);
+	io::fprintfn(out, "Found unexpected argument \"%s\"", arg);
 }
 
 fn void Opter.write_err_missing_value(&o, OutStream out = io::stdout()) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Missing value after argument: %s", arg);
+	io::fprintfn(out, "Missing value after argument \"%s\"", arg);
 }
 
 fn void Opter.write_err_parse_value(&o, anyfault err, OutStream out = io::stdout()) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Error parsing argument: %s, %s", arg, err);
+	io::fprintfn(out, "Error parsing argument \"%s\": %s", arg, err);
 }
 
 fn void Opter.write_err_next(&o, OutStream out = io::stdout()) {
 	String arg = o.args[o.idx_args];
-	io::fprintfn(out, "Error at argument: %s, %s", arg, o.err_msg);
+	io::fprintfn(out, "Error at argument \"%s\": %s", arg, o.err_msg);
 }
 
 struct Arg {
