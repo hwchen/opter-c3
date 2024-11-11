@@ -18,12 +18,12 @@ fn int main(String[] args) {
 				String! number_str = opter.value();
 				if (catch number_str) {
 					opter.write_err_missing_value();
-					break;
+					return 1;
 				}
 				uint! number_parsed = number_str.to_integer(uint);
 				if (catch err = number_parsed) {
 					opter.write_err_parse_value(err);
-					break;
+					return 1;
 				}
 				number = number_parsed;
 
@@ -41,6 +41,7 @@ fn int main(String[] args) {
 
 			default:
 				opter.write_err_unexpected_arg();
+				return 1;
 		}
 	}
 
