@@ -4,11 +4,11 @@
 // - long opts
 // - positional args
 // - options with optional arguments
+// - options with multiple arguments
 
 // - -- marks the end of options
-// - ' ' or = or unseparated for opt-value separator
+// - ' ' or = or (unseparated short) for opt-value separator
 // - short -abc
-// - options with multiple arguments
 // - errors using Opter.diagnostic
 // - TODO test all errors
 
@@ -92,6 +92,8 @@ fn Arg! Opter.next(&o) {
 	return arg;
 }
 
+// Always reads to the end of the word. So things like
+// -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
 fn String! Opter.value(&o) {
 	// Error if there's no more words to read.
 	if (o.idx_args >= o.args.len) return OpterError.NO_MORE_ARGS?;
