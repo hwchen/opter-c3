@@ -93,6 +93,9 @@ fn Arg! Opter.next(&o) {
 }
 
 fn String! Opter.value(&o) {
+	// Error if there's no more words to read.
+	if (o.idx_args >= o.args.len) return OpterError.NO_MORE_ARGS?;
+
 	// If in the middle of an arg, reads the rest of it.
 	// If at the beginning reads the entire thing.
 	String curr_arg = o.args[o.idx_args];
@@ -163,6 +166,10 @@ fault OpterStop {
 	END,
 }
 
+fault OpterError {
+	NO_MORE_ARGS,
+}
+
 // Tests
 
 fn void assert_arg(Arg found, Arg expected) @private {
@@ -182,6 +189,23 @@ fn void test_short_no_value() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_short_no_value_calls_value() @test {
+	String[] input = { "test", "-n" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert(!@ok(opter.value()));
+}
+
+fn void test_short_with_value() @test {
+	String[] input = { "test", "-n" "one"};
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert(opter.value()!!, "one");
 	assert(!@ok(opter.next()));
 }
 
