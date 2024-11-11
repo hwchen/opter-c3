@@ -21,7 +21,7 @@ def ValueList = List(<String>);
 struct Opter {
 	String[] args;
 	ulong idx_args;
-	ulong idx_arg; // for multiple chars
+	ulong idx_arg; // for multiple chars and non-space separator
 }
 
 fn void Opter.init(&opter, String[] args) {
