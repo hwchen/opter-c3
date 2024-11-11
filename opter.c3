@@ -190,3 +190,11 @@ fn void test_long_no_value() @test {
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "number" });
 	assert(!@ok(opter.next()));
 }
+
+fn void test_positional() @test {
+	String[] input = { "test", "thing" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = VALUE, .long_name = "thing" });
+	assert(!@ok(opter.next()));
+}
