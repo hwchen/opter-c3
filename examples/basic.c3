@@ -39,7 +39,8 @@ fn int main(String[] args) {
 	if (thing.has_value) {
 		out = thing.value;
 	} else {
-		out = "missing argument THING";
+		// copy needed because convert_ascii_to_upper is in-place
+		out = "missing argument THING".copy();
 	}
 	if (shout) out.convert_ascii_to_upper();
 	for (int i = 0; i < number; i += 1) {
