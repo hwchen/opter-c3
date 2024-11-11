@@ -3,7 +3,6 @@
 // - short opts
 // - long opts
 // - positional args
-// - options with optional arguments (
 // - options with multiple arguments
 // - -- marks the end of options
 
