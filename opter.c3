@@ -3,10 +3,10 @@
 // - short opts
 // - long opts
 // - positional args
-// - options with optional arguments
+// - options with optional arguments (
 // - options with multiple arguments
-
 // - -- marks the end of options
+
 // - ' ' or = or (unseparated short) for opt-value separator
 // - short -abc
 // - errors using Opter.diagnostic
@@ -315,4 +315,44 @@ fn void test_values_starting_condition() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
 	assert(!@ok(opter.values()));
+}
+
+fn void test_positional_end_mark() @test {
+	String[] input = { "test", "foo", "--", "bar" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_short_end_mark() @test {
+	String[] input = { "test", "-f", "--", "bar" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_long_end_mark() @test {
+	String[] input = { "test", "--foo", "--", "bar" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_value_end_mark() @test {
+	String[] input = { "test", "foo", "--", "bar" };
+	Opter opter;
+	opter.init(input);
+	assert(opter.value()!! == "foo");
+	assert(!@ok(opter.next()));
+}
+
+fn void test_values_end_mark() @test {
+	String[] input = { "test", "foo", "--", "bar" };
+	Opter opter;
+	opter.init(input);
+	assert(opter.values()!!.array_view() == { "foo" });
+	assert(!@ok(opter.next()));
 }
