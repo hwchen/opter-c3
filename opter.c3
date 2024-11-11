@@ -8,12 +8,10 @@
 // - ' ' or = or (unseparated short) for opt-value separator
 // - short -abc
 
-// - errors using Opter.diagnostic
+// - test values: in middle of word, returns to end of word.
 // - TODO test all errors
 // - test unexpected args in example
 // - test no more value(s)
-// - what if `value` is called in a loop? it won't be able to escape, as there's no
-//     external indication there's an error.
 
 // === Error Handling ===
 //
@@ -21,27 +19,30 @@
 // parser and just bubbles them up on each function call `next()` or `value()`, etc.
 //
 // Instead, Opter methods will just issue an END Fault if there's any reason to stop, whether
-// it's the happy path or the error path. And then it's up to the user to check diagnostics
-// for the error code or error message.
+// it's the happy path or the error path. And then it's up to the user to call a function to write
+// the error to file. This way, the control flow (happy path and error path) are separated from
+// writing error messages. If you try to streamline error message writing, control flow must be
+// controlled by Opter, which is confusing as the user can no longer easily see when errors occur.
+// (In Rust the error message is explicitly carried in the result, but with runtime costs. This allows
+// both explicit control flow and convenient automatic err message generation by Opter, but comes at
+// a runtime cost)
 //
-// Sending out errors through a separate check on diagnostics is the only way to have better
-// error messages (otherwise it would only be error codes). So all methods on Opter do this,
-// even if it might seem easier to return a more descriptive error directly. For example,
-// Opter.value() could directly return a NO_MORE_ARGS instead of a STOP. But it would split
-// error handling paths (as the user would be tempted to just bubble it up with `!`), and
-// it's not a good enough error to provide needed context for end-users anyways.
+// For example, trying to consolidate all the Opter errors to be checked in one place (i.e. having a `diagnostic`
+// be checked only after running the parser loop) makes it simpler to write the error but requires not returning
+// errors from `value` and `values`, hiding what can return an error and making Opter control the error flow
+// instead of the user. 
 //
-// The most important point for returning good error messages is to avoid bubbling up CLI errors
-// to `fn void! main(String[] args)`. Instead, use `fn int main(String[] args)` and handle printing
-// error messages in the body.
+// For now, it's up to the user to handle errors on-the-spot however they like. The only helpers are a
+// last_processed_arg which provides enough context for custom errors, and canned messages for `missing value`
+// and `unexpected arg`.
 //
-// Note: after errors are set on Opter, any method will return END/STOP, that way the loop for checking
-// `next()` will break.
-// 
-// TODO:
-// - patterns for handling errors when encapsulating CLI parsing in a function.
-// - patterns for turning all errors during parsing into an OpterError, and handling those in one place.
-//     (uses Opter.make_err()?)
+// To prevent bubbling up when unwanted, don't allow `!` in the fn signature (for `main`, return `int`)
+//
+// It's a bit unwieldy and can have unexpected errors (because user has to make sure to return, break, etc. in right place)
+// but it's very straightforward and not-magic.
+//
+// Also, it allows user to control messages better; you can use the preset messages or your own. If Opter prints the messages
+// internally, it's hard to modify.
 
 module opter;
 import std::collections::list;
@@ -54,19 +55,19 @@ struct Opter {
 	String[] args;
 	ulong idx_args;
 	ulong idx_arg; // for multiple chars and non-space separator
-	OpterError error_type;
-	String error_message;
+	bool has_next_error; // error while calling `next`
+	String err_msg;
 }
 
 fn void Opter.init(&opter, String[] args) {
 	opter.args = args;
 	opter.idx_args = 1;
 	opter.idx_arg = 0;
-	opter.error_type = NONE;
+	opter.has_next_error = false;
 }
 
 fn Arg! Opter.next(&o) {
-	if (o.error_type != OpterError.NONE) return OpterStop.END?;
+	if (o.has_next_error) return OpterStop.END?;
 	// Valid end of args
 	if (o.idx_args == o.args.len) return OpterStop.END?;
 
@@ -91,8 +92,11 @@ fn Arg! Opter.next(&o) {
 
 				// SHORT at beginning of arg
 				case curr_arg[0] == '-':
-					// TODO report. Dash followed by space not allowed.
-					if (curr_arg.len == 1) return OpterStop.END?;
+					if (curr_arg.len == 1) {
+						o.has_next_error = true;
+						o.err_msg = "dash followed by space not allowed";
+						return OpterStop.ERROR?;
+					}
 					arg.type = SHORT;
 					arg.short_name = curr_arg[1];
 					if (curr_arg.len == 2) {
@@ -114,9 +118,11 @@ fn Arg! Opter.next(&o) {
 			// o.idx_arg == curr_arg.len should be unreachable; if was at end of an arg,
 			// should have moved to the next
 			assert(o.idx_arg < curr_arg.len);
-			// TODO report. Cannot call 'next()' in the middle of a word which starts with
-			// a long; only 'value()' is allowed.
-			if (curr_arg[0:2] == "--") return OpterStop.END?;
+			if (curr_arg[0:2] == "--") {
+				o.has_next_error = true;
+				o.err_msg = "attempted to parse a flag or positional argument, only values allowed afer '='";
+				return OpterStop.ERROR?;
+			}
 			arg.type = SHORT;
 			arg.short_name = curr_arg[o.idx_arg];
 			if (o.idx_arg == curr_arg.len - 1) {
@@ -133,10 +139,7 @@ fn Arg! Opter.next(&o) {
 // -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
 fn String! Opter.value(&o) {
 	// Error if there's no more words to read.
-	if (o.idx_args >= o.args.len) {
-		o.make_err(INTERNAL, "No more values after arg");
-		return OpterStop.END?;
-	}
+	if (o.idx_args >= o.args.len) return OpterStop.ERROR?;
 
 	// If in the middle of an arg, reads the rest of it.
 	// If at the beginning reads the entire thing.
@@ -148,12 +151,17 @@ fn String! Opter.value(&o) {
 }
 
 fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
-	// Cannot start in the middle of an arg (opt value without leading space)
+	ValueList values;
+	// if called in middle of word, then return until the end of that word only.
+	if (o.idx_arg != 0) {
+		String val = o.value()!!;
+		values.push(val);
+		return values;
+	}
+
 	// returns all args until the end, or the next arg starts with '-'
-	if (o.idx_arg != 0) return OpterStop.END?;
 	String curr_arg = o.args[o.idx_args];
 
-	ValueList values;
 	values.push(curr_arg[o.idx_arg..]);
 	o.idx_args += 1;
 	o.idx_arg = 0;
@@ -170,27 +178,33 @@ fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
 // Used only for stopping iteration next();
 fault OpterStop {
 	END,
+	ERROR, // not generally switched on, but makes it easier to see errors.
 }
 
-fault OpterError {
-	NONE,
-	INTERNAL,
-	CUSTOM,
+// For use in error messages. Intended to be used both for canned messages, and for users to create
+// custom messages
+fn String Opter.last_processed_arg(&o) {
+	return o.args[o.idx_args - 1];
 }
 
-fn void Opter.err_unexpected_arg(&o) {
-	// TODO is heap allocator always ok? Assume cli will exit immediately after anyways
-	// refers to the arg that was just parsed
-	o.make_err(INTERNAL, string::format("found unexpected argument: %s", o.args[o.idx_args - 1], allocator: allocator::heap()));
+fn void Opter.write_err_unexpected_arg(&o, OutStream out = io::stdout()) {
+	String arg = o.last_processed_arg();
+	io::fprintfn(out, "Found unexpected argument: %s", arg);
 }
 
-fn void Opter.err_custom_message(&o, String msg) {
-	o.make_err(CUSTOM, msg);
+fn void Opter.write_err_missing_value(&o, OutStream out = io::stdout()) {
+	String arg = o.last_processed_arg();
+	io::fprintfn(out, "Missing value after argument: %s", arg);
 }
 
-fn void Opter.make_err(&o, OpterError error_type, String error_message) {
-	o.error_type = error_type;
-	o.error_message = string::format("Error at arg %s: %s", o.args[o.idx_args - 1], error_message");
+fn void Opter.write_err_parse_value(&o, anyfault err, OutStream out = io::stdout()) {
+	String arg = o.last_processed_arg();
+	io::fprintfn(out, "Error parsing argument: %s, %s", arg, err);
+}
+
+fn void Opter.write_err_next(&o, OutStream out = io::stdout()) {
+	String arg = o.args[o.idx_args];
+	io::fprintfn(out, "Error at argument: %s, %s", arg, o.err_msg);
 }
 
 struct Arg {

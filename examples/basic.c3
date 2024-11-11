@@ -16,12 +16,16 @@ fn int main(String[] args) {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
 				String! number_str = opter.value();
-				if (catch number_str) break;
+				if (catch number_str) {
+					opter.write_err_missing_value();
+					break;
+				}
 				uint! number_parsed = number_str.to_integer(uint);
 				if (catch err = number_parsed) {
-					opter.err_custom_message(string::tformat("Error parsing: %s", err));
+					opter.write_err_parse_value(err);
+					break;
 				}
-				number = number_parsed!!;
+				number = number_parsed;
 
 			case arg.is(LONG, "shout"):
 				shout = true;
@@ -36,14 +40,13 @@ fn int main(String[] args) {
 				return 0;
 
 			default:
-				opter.err_unexpected_arg();
+				opter.write_err_unexpected_arg();
 		}
 	}
 
-	// Note that if you don't handle the error here, it's possible to continue with junk values,
-	// as Opter is not designed to early-return using `!` on methods.
-	if (opter.error_type != OpterError.NONE) {
-		io::eprintfn("CLI Error: %s", opter.error_message);
+	// Handle errors arising from `next()` parsing.
+	if (opter.has_next_error) {
+		opter.write_err_next();
 		return 1;
 	}
 
