@@ -96,7 +96,7 @@ fn Arg! Opter.next(&o) {
 // -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
 fn String! Opter.value(&o) {
 	// Error if there's no more words to read.
-	if (o.idx_args >= o.args.len) return OpterError.NO_MORE_ARGS?;
+	if (o.idx_args >= o.args.len) return OpterStop.END?;
 
 	// If in the middle of an arg, reads the rest of it.
 	// If at the beginning reads the entire thing.
@@ -170,7 +170,7 @@ fault OpterStop {
 }
 
 fault OpterError {
-	NO_MORE_ARGS,
+	NO_MORE_ARGS, // from Arg.value()
 }
 
 // Tests
