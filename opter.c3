@@ -74,8 +74,9 @@ fn Arg! Opter.next(&o) {
 		// collected shorts in the middle of the arg
 		// If user wants a value following a short, they should call 'value()'
 		default:
-			// This state should be unreachable; if was at end of an arg, should have moved to the next
-			assert(o.idx_arg == curr_arg.len);
+			// o.idx_arg == curr_arg.len should be unreachable; if was at end of an arg,
+			// should have moved to the next
+			assert(o.idx_arg < curr_arg.len);
 			// TODO report. Cannot call 'next()' in the middle of a word which starts with
 			// a long; only 'value()' is allowed.
 			if (curr_arg[0:2] == "--") return OpterStop.END?;
@@ -178,7 +179,7 @@ fn void assert_arg(Arg found, Arg expected) @private {
 	assert(found.type == expected.type, "Found %s, expected %s", found.type, expected.type);
 	switch (found.type) {
 		case SHORT:
-			assert(found.short_name == expected.short_name, "Found %s, expected %s", found.short_name, expected.short_name);
+			assert(found.short_name == expected.short_name, "Found %c, expected %c", found.short_name, expected.short_name);
 		case LONG:
 			assert(found.long_name == expected.long_name, "Found %s, expected %s", found.long_name, expected.value);
 		case VALUE:
@@ -388,5 +389,16 @@ fn void test_values_end_mark() @test {
 	Opter opter;
 	opter.init(input);
 	assert(opter.values()!!.array_view() == { "foo" });
+	assert(!@ok(opter.next()));
+}
+
+fn void test_short_cluster() @test {
+	String[] input = { "test", "-abc", "--foo" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'a' });
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'b' });
+	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'c' });
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(!@ok(opter.next()));
 }
