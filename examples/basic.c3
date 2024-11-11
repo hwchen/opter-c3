@@ -35,6 +35,10 @@ fn int main(String[] args) {
 		}
 	}
 
+	io::eprintfn("number: %d", number);
+	io::eprintfn("shout: %s", shout);
+	io::eprintfn("thing: %s", thing.get() ?? "nil");
+
 	String out;
 	if (thing.has_value) {
 		out = thing.value;
