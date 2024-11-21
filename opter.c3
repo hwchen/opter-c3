@@ -87,6 +87,8 @@ fn Arg! Opter.next(&o) {
 					if (o.idx_arg == curr_arg.len) {
 						o.idx_args += 1;
 						o.idx_arg = 0;
+					} else {
+						o.idx_arg += 1;
 					}
 
 				// SHORT at beginning of arg
