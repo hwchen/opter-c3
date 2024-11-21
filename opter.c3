@@ -100,6 +100,8 @@ fn Arg! Opter.next(&o) {
 					arg.short_name = curr_arg[1];
 					if (curr_arg.len == 2) {
 						o.idx_args += 1;
+					} else if (curr_arg[2] == '=') {
+						o.idx_arg += 3;
 					} else {
 						o.idx_arg += 2;
 					}
