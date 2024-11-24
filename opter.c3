@@ -14,6 +14,8 @@
 
 // === Error Handling ===
 //
+// TODO trying to simplify interface, so this section may not apply.
+//
 // It's a bit more manual than something like Rust's lexopt, which creates errors in the
 // parser and just bubbles them up on each function call `next()` or `value()`, etc.
 //
@@ -65,7 +67,7 @@ fn void Opter.init(&opter, String[] args) {
 	opter.has_next_error = false;
 }
 
-fn Arg! Opter.next(&o) {
+fn Arg!! Opter.next(&o) {
 	if (o.has_next_error) return OpterStop.END?;
 	// Valid end of args
 	if (o.idx_args == o.args.len) return OpterStop.END?;
