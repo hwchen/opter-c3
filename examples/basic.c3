@@ -37,8 +37,10 @@ fn int main(String[] args) {
 				return 0;
 
 			default:
-				opter.write_err_unexpected_arg();
-				return 1;
+				// always returns err; makes more sense when throwing using `!`
+				if (catch opter.err_unexpected_arg()) {
+					return 1;
+				}
 		}
 	}
 

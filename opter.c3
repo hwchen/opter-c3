@@ -177,9 +177,10 @@ fn void Opter.write_err_missing_value(&o) @private {
 }
 
 // User should call this in default case when switching on `Arg arg = parser.next()!`
-fn void Opter.write_err_unexpected_arg(&o) {
+fn void! Opter.err_unexpected_arg(&o) {
 	String arg = o.last_processed_arg();
 	io::fprintfn(o.out, "Found unexpected argument \"%s\"", arg);
+	return OpterError.ERROR?;
 }
 
 // Currently used by users. But in future, Opter may handle parsing internally.
