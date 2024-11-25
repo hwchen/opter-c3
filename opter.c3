@@ -52,7 +52,7 @@ fn Arg! Opter.next(&o) {
 		case 0:
 			switch {
 				// LONG at beginning of arg
-				case curr_arg[0:2] == "--":
+				case curr_arg.len >= 2&& curr_arg[0:2] == "--":
 					// Valid end of args --
 					if (curr_arg.len == 2) return { .type = EOF };
 					arg.type = LONG;
@@ -67,10 +67,10 @@ fn Arg! Opter.next(&o) {
 					}
 
 				// SHORT at beginning of arg
+				// or VALUE if it's just a dash
 				case curr_arg[0] == '-':
 					if (curr_arg.len == 1) {
-						o.write_err("dash followed by space not allowed");
-						return OpterError.ERROR?;
+						nextcase default;
 					}
 					arg.type = SHORT;
 					arg.short_name = curr_arg[1];
