@@ -277,7 +277,7 @@ fn void test_short_with_value() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
-	assert(opter.value()!! == "one");
+	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -286,7 +286,7 @@ fn void test_short_with_value_no_separator() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
-	assert(opter.value()!! == "one");
+	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -295,7 +295,7 @@ fn void test_short_with_value_eq_separator() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
-	assert(opter.value()!! == "one");
+	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -321,7 +321,7 @@ fn void test_long_with_value() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
-	assert(opter.value()!! == "one");
+	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -330,7 +330,7 @@ fn void test_long_with_value_eq_separator() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
-	assert(opter.value()!! == "one");
+	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -450,7 +450,7 @@ fn void test_value_end_mark() @test {
 	String[] input = { "test", "foo", "--", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.value()!! == "foo");
+	assert(opter.value()!!.as_str() == "foo");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
