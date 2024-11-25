@@ -472,3 +472,11 @@ fn void test_short_cluster() @test {
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
+
+fn void test_value_single_dash() @test {
+	String[] input = { "test", "-" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "-" });
+	assert_arg(opter.next()!!, { .type = EOF });
+}
