@@ -91,14 +91,17 @@ fn Arg! Opter.next(&o) {
 
 		// collected shorts in the middle of the arg
 		// If user wants a value following a short, they should call 'value()'
+		// There's two possible errors here, they should be the only ones in `next()`.
 		default:
 			// o.idx_arg == curr_arg.len should be unreachable; if was at end of an arg,
 			// should have moved to the next
 			assert(o.idx_arg < curr_arg.len);
+			// TODO improve this error
 			if (curr_arg[0:2] == "--") {
 				o.write_err("attempted to parse a flag or positional argument, only values allowed afer '='");
 				return OpterError.ERROR?;
 			}
+			// TODO `-=` is ok, but `-o=` is not
 			arg.type = SHORT;
 			arg.short_name = curr_arg[o.idx_arg];
 			if (o.idx_arg == curr_arg.len - 1) {
