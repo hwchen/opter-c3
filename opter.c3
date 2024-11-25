@@ -30,13 +30,14 @@ struct Opter {
 	String[] args;
 	ulong idx_args;
 	ulong idx_arg; // for multiple chars and non-space separator
-	String err_msg;
+	OutStream out;
 }
 
-fn void Opter.init(&opter, String[] args) {
+fn void Opter.init(&opter, String[] args, OutStream out = io::stdout()) {
 	opter.args = args;
 	opter.idx_args = 1;
 	opter.idx_arg = 0;
+	opter.out = out;
 }
 
 fn Arg! Opter.next(&o) {
@@ -161,26 +162,26 @@ fn String Opter.last_processed_arg(&o) @private {
 	return o.args[o.idx_args - 1];
 }
 
-fn void Opter.write_err(&o, String msg, OutStream out = io::stdout()) @private {
+fn void Opter.write_err(&o, String msg) @private {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Error at \"%s\": %s", arg, msg);
+	io::fprintfn(o.out, "Error at \"%s\": %s", arg, msg);
 }
 
-fn void Opter.write_err_missing_value(&o, OutStream out = io::stdout()) @private {
+fn void Opter.write_err_missing_value(&o) @private {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Missing value after argument \"%s\"", arg);
+	io::fprintfn(o.out, "Missing value after argument \"%s\"", arg);
 }
 
 // User should call this in default case when switching on `Arg arg = parser.next()!`
-fn void Opter.write_err_unexpected_arg(&o, OutStream out = io::stdout()) {
+fn void Opter.write_err_unexpected_arg(&o) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Found unexpected argument \"%s\"", arg);
+	io::fprintfn(o.out, "Found unexpected argument \"%s\"", arg);
 }
 
 // Currently used by users. But in future, Opter may handle parsing internally.
-fn void Opter.write_err_parse_value(&o, anyfault err, OutStream out = io::stdout()) {
+fn void Opter.write_err_parse_value(&o, anyfault err) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Error parsing argument \"%s\": %s", arg, err);
+	io::fprintfn(o.out, "Error parsing argument \"%s\": %s", arg, err);
 }
 
 struct Arg {
@@ -239,7 +240,8 @@ fn void test_short_no_value() @test {
 fn void test_short_no_value_calls_value() @test {
 	String[] input = { "test", "-n" };
 	Opter opter;
-	opter.init(input);
+	DString out; // write here instead of stdout for err
+	opter.init(input, &out);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
 	assert(!@ok(opter.value()));
 }
@@ -282,7 +284,8 @@ fn void test_long_no_value() @test {
 fn void test_long_no_value_calls_value() @test {
 	String[] input = { "test", "--foo" };
 	Opter opter;
-	opter.init(input);
+	DString out; // write here instead of stdout for err
+	opter.init(input, &out);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(!@ok(opter.value()));
 }
