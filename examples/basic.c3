@@ -18,21 +18,18 @@ fn int main(String[] args) {
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				String! number_str = opter.value();
-				if (catch number_str) return 1;
-				uint! number_parsed = number_str.to_integer(uint);
-				if (catch err = number_parsed) {
-					opter.write_err_parse_value(err);
-					return 1;
-				}
-				number = number_parsed;
+				Value! value = opter.value();
+				if (catch value) return 1;
+				uint! n = value.as_int(uint);
+				if (catch n) return 1;
+				number = n;
 
 			case arg.is(LONG, "shout"):
 				shout = true;
 
 			case arg.is(VALUE):
 				if (!thing.has_value) {
-					thing = { .value = arg.value, .has_value = true };
+					thing = { .value = arg.value.as_str(), .has_value = true };
 				}
 
 			case arg.is(LONG, "help"):

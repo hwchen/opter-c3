@@ -24,7 +24,8 @@ import std::collections::list;
 import std::core::string;
 import std::io;
 
-def ValueList = List(<String>);
+def ValueList = List(<Value>);
+distinct Value = String;
 
 struct Opter {
 	String[] args;
@@ -84,7 +85,7 @@ fn Arg! Opter.next(&o) {
 				// VALUE at beginning of arg
 				default:
 					arg.type = VALUE;
-					arg.value = curr_arg;
+					arg.value = (Value)curr_arg;
 					o.idx_args += 1;
 			}
 
@@ -112,7 +113,7 @@ fn Arg! Opter.next(&o) {
 
 // Always reads to the end of the word. So things like
 // -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
-fn String! Opter.value(&o) {
+fn Value! Opter.value(&o) {
 	// Error if there's no more words to read.
 	if (o.idx_args >= o.args.len) {
 		o.write_err_missing_value();
@@ -125,29 +126,29 @@ fn String! Opter.value(&o) {
 	String res = curr_arg[o.idx_arg..];
 	o.idx_args += 1;
 	o.idx_arg = 0;
-	return res;
+	return (Value)res;
 }
 
 fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
 	ValueList values;
 	// if called in middle of word, then return until the end of that word only.
 	if (o.idx_arg != 0) {
-		String val = o.value()!!;
-		values.push(val);
+		Value val = o.value()!!;
+		values.push((Value)val);
 		return values;
 	}
 
 	// returns all args until the end, or the next arg starts with '-'
 	String curr_arg = o.args[o.idx_args];
 
-	values.push(curr_arg[o.idx_arg..]);
+	values.push((Value)curr_arg[o.idx_arg..]);
 	o.idx_args += 1;
 	o.idx_arg = 0;
 	while (o.idx_args < o.args.len) {
 		String curr_value = o.args[o.idx_args];
 		// breaks on short or long flag
 		if (curr_value[0] == '-') break;
-		values.push(curr_value);
+		values.push((Value)curr_value);
 		o.idx_args += 1;
 	}
 	return values;
@@ -189,7 +190,7 @@ struct Arg {
 	union {
 		char short_name;
 		String long_name;
-		String value;
+		Value value;
 	}
 }
 
@@ -213,6 +214,31 @@ macro bool Arg.is(&arg, ArgType $type, ...) {
 			return arg.type == VALUE;
 	$endswitch
 }
+
+fn String Value.as_str(value) {
+	return (String)value;
+}
+
+fn Path! Value.as_path(value) {
+	Path! path = path::new((String)value);
+	if (catch err = path) {
+		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
+	}
+	return path;
+}
+
+macro Value.as_int(value, $Type, int base = 10) {
+	String s = (String)value;
+	// calling to_integer twice is weird, working around some weirdness
+	// where $Type! n = s.to_integer($Type, base); gives
+	// `Error: It is not possible to cast from 'uint!' to 'uint'.` when called with uint
+	if (catch err = s.to_integer($Type, base)) {
+		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
+		return OpterError.ERROR?;
+	}
+	return s.to_integer($Type, base)!!;
+}
+
 
 // Tests
 
