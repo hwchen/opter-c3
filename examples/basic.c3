@@ -11,15 +11,15 @@ fn int main(String[] args) {
 	uint number;
 	bool shout;
 
-	while (try arg = opter.next()) {
+	while (true) {
+		Arg! arg = opter.next();
+		if (catch arg) return 1;
+		if (arg.type == EOF) break;
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
 				String! number_str = opter.value();
-				if (catch number_str) {
-					opter.write_err_missing_value();
-					return 1;
-				}
+				if (catch number_str) return 1;
 				uint! number_parsed = number_str.to_integer(uint);
 				if (catch err = number_parsed) {
 					opter.write_err_parse_value(err);
@@ -43,12 +43,6 @@ fn int main(String[] args) {
 				opter.write_err_unexpected_arg();
 				return 1;
 		}
-	}
-
-	// Handle errors arising from `next()` parsing.
-	if (opter.has_next_error) {
-		opter.write_err_next();
-		return 1;
 	}
 
 	io::eprintfn("number: %d", number);

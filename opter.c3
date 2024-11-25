@@ -14,36 +14,10 @@
 
 // === Error Handling ===
 //
-// TODO trying to simplify interface, so this section may not apply.
+// Opter is fairly simple, but will write a nice-ish error message before returning an error.
 //
-// It's a bit more manual than something like Rust's lexopt, which creates errors in the
-// parser and just bubbles them up on each function call `next()` or `value()`, etc.
-//
-// Instead, Opter methods will just issue an END Fault if there's any reason to stop, whether
-// it's the happy path or the error path. And then it's up to the user to call a function to write
-// the error to file. This way, the control flow (happy path and error path) are separated from
-// writing error messages. If you try to streamline error message writing, control flow must be
-// controlled by Opter, which is confusing as the user can no longer easily see when errors occur.
-// (In Rust the error message is explicitly carried in the result, but with runtime costs. This allows
-// both explicit control flow and convenient automatic err message generation by Opter, but comes at
-// a runtime cost)
-//
-// For example, trying to consolidate all the Opter errors to be checked in one place (i.e. having a `diagnostic`
-// be checked only after running the parser loop) makes it simpler to write the error but requires not returning
-// errors from `value` and `values`, hiding what can return an error and making Opter control the error flow
-// instead of the user. 
-//
-// For now, it's up to the user to handle errors on-the-spot however they like. The only helpers are a
-// last_processed_arg which provides enough context for custom errors, and canned messages for `missing value`
-// and `unexpected arg`.
-//
-// To prevent bubbling up when unwanted, don't allow `!` in the fn signature (for `main`, return `int`)
-//
-// It's a bit unwieldy and can have unexpected errors (because user has to make sure to return, break, etc. in right place)
-// but it's very straightforward and not-magic.
-//
-// Also, it allows user to control messages better; you can use the preset messages or your own. If Opter prints the messages
-// internally, it's hard to modify.
+// Currently does not handle parsing values, so user needs to either write those messages themselves,
+// or pass the parse error into `Opter.write_err_parse_value(err)` for Opter to write the message.
 
 module opter;
 import std::collections::list;
@@ -56,7 +30,6 @@ struct Opter {
 	String[] args;
 	ulong idx_args;
 	ulong idx_arg; // for multiple chars and non-space separator
-	bool has_next_error; // error while calling `next`
 	String err_msg;
 }
 
@@ -64,13 +37,11 @@ fn void Opter.init(&opter, String[] args) {
 	opter.args = args;
 	opter.idx_args = 1;
 	opter.idx_arg = 0;
-	opter.has_next_error = false;
 }
 
-fn Arg!! Opter.next(&o) {
-	if (o.has_next_error) return OpterStop.END?;
+fn Arg! Opter.next(&o) {
 	// Valid end of args
-	if (o.idx_args == o.args.len) return OpterStop.END?;
+	if (o.idx_args == o.args.len) return { .type = EOF };
 
 	String curr_arg = o.args[o.idx_args];
 	Arg arg;
@@ -81,7 +52,7 @@ fn Arg!! Opter.next(&o) {
 				// LONG at beginning of arg
 				case curr_arg[0:2] == "--":
 					// Valid end of args --
-					if (curr_arg.len == 2) return OpterStop.END?;
+					if (curr_arg.len == 2) return { .type = EOF };
 					arg.type = LONG;
 					o.idx_arg = curr_arg.index_of_char('=') ?? curr_arg.len;
 					// TODO disallow = directly after --?
@@ -96,9 +67,8 @@ fn Arg!! Opter.next(&o) {
 				// SHORT at beginning of arg
 				case curr_arg[0] == '-':
 					if (curr_arg.len == 1) {
-						o.has_next_error = true;
-						o.err_msg = "dash followed by space not allowed";
-						return OpterStop.ERROR?;
+						o.write_err("dash followed by space not allowed");
+						return OpterError.ERROR?;
 					}
 					arg.type = SHORT;
 					arg.short_name = curr_arg[1];
@@ -124,9 +94,8 @@ fn Arg!! Opter.next(&o) {
 			// should have moved to the next
 			assert(o.idx_arg < curr_arg.len);
 			if (curr_arg[0:2] == "--") {
-				o.has_next_error = true;
-				o.err_msg = "attempted to parse a flag or positional argument, only values allowed afer '='";
-				return OpterStop.ERROR?;
+				o.write_err("attempted to parse a flag or positional argument, only values allowed afer '='");
+				return OpterError.ERROR?;
 			}
 			arg.type = SHORT;
 			arg.short_name = curr_arg[o.idx_arg];
@@ -144,7 +113,10 @@ fn Arg!! Opter.next(&o) {
 // -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
 fn String! Opter.value(&o) {
 	// Error if there's no more words to read.
-	if (o.idx_args >= o.args.len) return OpterStop.ERROR?;
+	if (o.idx_args >= o.args.len) {
+		o.write_err_missing_value();
+		return OpterError.ERROR?;
+	}
 
 	// If in the middle of an arg, reads the rest of it.
 	// If at the beginning reads the entire thing.
@@ -180,36 +152,35 @@ fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
 	return values;
 }
 
-// Used only for stopping iteration next();
-fault OpterStop {
-	END,
-	ERROR, // not generally switched on, but makes it easier to see errors.
+fault OpterError {
+	ERROR,
 }
 
-// For use in error messages. Intended to be used both for canned messages, and for users to create
-// custom messages
-fn String Opter.last_processed_arg(&o) {
+// For use in error messages.
+fn String Opter.last_processed_arg(&o) @private {
 	return o.args[o.idx_args - 1];
 }
 
+fn void Opter.write_err(&o, String msg, OutStream out = io::stdout()) @private {
+	String arg = o.last_processed_arg();
+	io::fprintfn(out, "Error at \"%s\": %s", arg, msg);
+}
+
+fn void Opter.write_err_missing_value(&o, OutStream out = io::stdout()) @private {
+	String arg = o.last_processed_arg();
+	io::fprintfn(out, "Missing value after argument \"%s\"", arg);
+}
+
+// User should call this in default case when switching on `Arg arg = parser.next()!`
 fn void Opter.write_err_unexpected_arg(&o, OutStream out = io::stdout()) {
 	String arg = o.last_processed_arg();
 	io::fprintfn(out, "Found unexpected argument \"%s\"", arg);
 }
 
-fn void Opter.write_err_missing_value(&o, OutStream out = io::stdout()) {
-	String arg = o.last_processed_arg();
-	io::fprintfn(out, "Missing value after argument \"%s\"", arg);
-}
-
+// Currently used by users. But in future, Opter may handle parsing internally.
 fn void Opter.write_err_parse_value(&o, anyfault err, OutStream out = io::stdout()) {
 	String arg = o.last_processed_arg();
 	io::fprintfn(out, "Error parsing argument \"%s\": %s", arg, err);
-}
-
-fn void Opter.write_err_next(&o, OutStream out = io::stdout()) {
-	String arg = o.args[o.idx_args];
-	io::fprintfn(out, "Error at argument \"%s\": %s", arg, o.err_msg);
 }
 
 struct Arg {
@@ -222,6 +193,7 @@ struct Arg {
 }
 
 enum ArgType {
+	EOF,
 	SHORT,
 	LONG,
 	VALUE,
@@ -252,6 +224,7 @@ fn void assert_arg(Arg found, Arg expected) @private {
 			assert(found.long_name == expected.long_name, "Found %s, expected %s", found.long_name, expected.value);
 		case VALUE:
 			assert(found.value == expected.value, "Found %s, expected %s", found.value, expected.value);
+		case EOF: // covered by assert on .type
 	}
 }
 
@@ -260,7 +233,7 @@ fn void test_short_no_value() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_no_value_calls_value() @test {
@@ -277,7 +250,7 @@ fn void test_short_with_value() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
 	assert(opter.value()!! == "one");
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_with_value_no_separator() @test {
@@ -286,7 +259,7 @@ fn void test_short_with_value_no_separator() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
 	assert(opter.value()!! == "one");
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_with_value_eq_separator() @test {
@@ -295,7 +268,7 @@ fn void test_short_with_value_eq_separator() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
 	assert(opter.value()!! == "one");
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_no_value() @test {
@@ -303,7 +276,7 @@ fn void test_long_no_value() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "number" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_no_value_calls_value() @test {
@@ -320,7 +293,7 @@ fn void test_long_with_value() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(opter.value()!! == "one");
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_with_value_eq_separator() @test {
@@ -329,7 +302,7 @@ fn void test_long_with_value_eq_separator() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(opter.value()!! == "one");
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_positional() @test {
@@ -337,7 +310,7 @@ fn void test_positional() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .long_name = "thing" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_then_another() @test {
@@ -346,7 +319,7 @@ fn void test_short_then_another() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'o' });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_then_another() @test {
@@ -355,7 +328,7 @@ fn void test_long_then_another() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "bar" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_positional_then_another() @test {
@@ -364,7 +337,7 @@ fn void test_positional_then_another() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "bar" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_values_basic() @test {
@@ -372,7 +345,7 @@ fn void test_values_basic() @test {
 	Opter opter;
 	opter.init(input);
 	assert(opter.values()!!.array_view() == { "foo", "bar" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_values_then_short() @test {
@@ -381,7 +354,7 @@ fn void test_values_then_short() @test {
 	opter.init(input);
 	assert(opter.values()!!.array_view() == { "foo", "bar" });
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'a' });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_values_then_long() @test {
@@ -390,7 +363,7 @@ fn void test_values_then_long() @test {
 	opter.init(input);
 	assert(opter.values()!!.array_view() == { "foo", "bar" });
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "baz" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_values() @test {
@@ -399,7 +372,7 @@ fn void test_short_values() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
 	assert(opter.values()!!.array_view() == { "bar", "baz" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_values() @test {
@@ -408,7 +381,7 @@ fn void test_long_values() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(opter.values()!!.array_view() == { "bar", "baz" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 // values can start in the middle of a word, but will only go to end of that word
@@ -425,7 +398,7 @@ fn void test_positional_end_mark() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_end_mark() @test {
@@ -433,7 +406,7 @@ fn void test_short_end_mark() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_end_mark() @test {
@@ -441,7 +414,7 @@ fn void test_long_end_mark() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_value_end_mark() @test {
@@ -449,7 +422,7 @@ fn void test_value_end_mark() @test {
 	Opter opter;
 	opter.init(input);
 	assert(opter.value()!! == "foo");
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_values_end_mark() @test {
@@ -457,7 +430,7 @@ fn void test_values_end_mark() @test {
 	Opter opter;
 	opter.init(input);
 	assert(opter.values()!!.array_view() == { "foo" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_cluster() @test {
@@ -468,5 +441,5 @@ fn void test_short_cluster() @test {
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'b' });
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'c' });
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
-	assert(!@ok(opter.next()));
+	assert_arg(opter.next()!!, { .type = EOF });
 }
