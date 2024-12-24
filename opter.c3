@@ -47,69 +47,68 @@ fn Arg! Opter.next(&o) {
 
 	String curr_arg = o.args[o.idx_args];
 	Arg arg;
-	switch (o.idx_arg) {
+	if (o.idx_arg == 0) {
 		// At beginning of curr_arg
-		case 0:
-			switch {
-				// LONG at beginning of arg
-				case curr_arg.len >= 2&& curr_arg[0:2] == "--":
-					// Valid end of args --
-					if (curr_arg.len == 2) return { .type = EOF };
-					arg.type = LONG;
-					o.idx_arg = curr_arg.index_of_char('=') ?? curr_arg.len;
-					// TODO disallow = directly after --?
-					arg.long_name = curr_arg[2..o.idx_arg - 1];
-					if (o.idx_arg == curr_arg.len) {
-						o.idx_args += 1;
-						o.idx_arg = 0;
-					} else {
-						o.idx_arg += 1;
-					}
-
-				// SHORT at beginning of arg
-				// or VALUE if it's just a dash
-				case curr_arg[0] == '-':
-					if (curr_arg.len == 1) {
-						nextcase default;
-					}
-					arg.type = SHORT;
-					arg.short_name = curr_arg[1];
-					if (curr_arg.len == 2) {
-						o.idx_args += 1;
-					} else if (curr_arg[2] == '=') {
-						o.idx_arg += 3;
-					} else {
-						o.idx_arg += 2;
-					}
-
-				// VALUE at beginning of arg
-				default:
-					arg.type = VALUE;
-					arg.value = (Value)curr_arg;
+		switch {
+			// LONG at beginning of arg
+			case curr_arg.len >= 2 && curr_arg[0:2] == "--":
+				// Valid end of args --
+				if (curr_arg.len == 2) return { .type = EOF };
+				arg.type = LONG;
+				o.idx_arg = curr_arg.index_of_char('=') ?? curr_arg.len;
+				// TODO disallow = directly after --?
+				arg.long_name = curr_arg[2..o.idx_arg - 1];
+				if (o.idx_arg == curr_arg.len) {
 					o.idx_args += 1;
-			}
+					o.idx_arg = 0;
+				} else {
+					o.idx_arg += 1;
+				}
 
+			// SHORT at beginning of arg
+			// or VALUE if it's just a dash
+			case curr_arg[0] == '-':
+				if (curr_arg.len == 1) {
+					nextcase default;
+				}
+				arg.type = SHORT;
+				arg.short_name = curr_arg[1];
+				if (curr_arg.len == 2) {
+					o.idx_args += 1;
+				} else if (curr_arg[2] == '=') {
+					o.idx_arg += 3;
+				} else {
+					o.idx_arg += 2;
+				}
+
+			// VALUE at beginning of arg
+			default:
+				arg.type = VALUE;
+				arg.value = (Value)curr_arg;
+				o.idx_args += 1;
+		}
+	} else {
 		// collected shorts in the middle of the arg
 		// If user wants a value following a short, they should call 'value()'
 		// There's two possible errors here, they should be the only ones in `next()`.
-		default:
-			// o.idx_arg == curr_arg.len should be unreachable; if was at end of an arg,
-			// should have moved to the next
-			assert(o.idx_arg < curr_arg.len);
-			// TODO improve this error
-			if (curr_arg[0:2] == "--") {
-				o.write_err("attempted to parse a flag or positional argument, only values allowed afer '='");
-				return OpterError.ERROR?;
-			}
-			// TODO `-=` is ok, but `-o=` is not
-			arg.type = SHORT;
-			arg.short_name = curr_arg[o.idx_arg];
-			if (o.idx_arg == curr_arg.len - 1) {
-				o.idx_args += 1;
-				o.idx_arg = 0;
-			} else {
-				o.idx_arg += 1;
-			}
+
+		// o.idx_arg == curr_arg.len should be unreachable; if was at end of an arg,
+		// should have moved to the next
+		assert(o.idx_arg < curr_arg.len);
+		// TODO improve this error
+		if (curr_arg[0:2] == "--") {
+			o.write_err("attempted to parse a flag or positional argument, only values allowed afer '='");
+			return OpterError.ERROR?;
+		}
+		// TODO `-=` is ok, but `-o=` is not
+		arg.type = SHORT;
+		arg.short_name = curr_arg[o.idx_arg];
+		if (o.idx_arg == curr_arg.len - 1) {
+			o.idx_args += 1;
+			o.idx_arg = 0;
+		} else {
+			o.idx_arg += 1;
+		}
 	}
 	return arg;
 }
