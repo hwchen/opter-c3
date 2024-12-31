@@ -18,7 +18,10 @@ fn int main(String[] args) {
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				uint! n = opter.value_as_int(uint);
+				// This works more smoothly when bubbling up error
+				Value! v = opter.value();
+				if (catch v) return 1;
+				int! n = v.as_int(uint);
 				if (catch n) return 1;
 				number = n;
 
