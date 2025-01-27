@@ -8,16 +8,13 @@
 // - ' ' or = or (unseparated short) for opt-value separator
 // - short -abc
 
-// - TODO test all errors
-// - test unexpected args in example
-// - test no more value(s)
-
 // === Error Handling ===
 //
 // Opter is fairly simple, but will write a nice-ish error message before returning an error.
 //
-// Currently does not handle parsing values, so user needs to either write those messages themselves,
-// or pass the parse error into `Opter.write_err_parse_value(err)` for Opter to write the message.
+// Some basic value parsing (int, path) is currently implemented, and will automatically print a nice-ish error message.
+//
+// Open to suggestions for improved error handling API, as some might not want the automatic error message.
 
 module opter;
 import std::collections::list;
@@ -29,8 +26,11 @@ distinct Value = String;
 
 struct Opter {
 	String[] args;
+	// index into args
 	ulong idx_args;
-	ulong idx_arg; // for multiple chars and non-space separator
+	// index into the current arg
+	// for multiple chars and non-space separator
+	ulong idx_arg;
 	OutStream out;
 }
 
