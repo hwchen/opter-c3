@@ -19,6 +19,7 @@ fn int main(String[] args) {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
 				// This works more smoothly when bubbling up error
+				// inside fn which returns an optional.
 				Value! v = opter.value();
 				if (catch v) return 1;
 				int! n = v.as_int(uint);
