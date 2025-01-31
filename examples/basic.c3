@@ -3,62 +3,61 @@ import std::collections::maybe;
 import std::io;
 import opter;
 
-fn int main(String[] args) {
-	Opter opter;
-	opter.init(args);
-
+struct Opts {
 	Maybe(<String>) thing;
 	uint number;
 	bool shout;
+}
+
+fn void! parse_cli(String[] args, Opts* opts) {
+	Opter opter;
+	opter.init(args);
 
 	while (true) {
-		Arg! arg = opter.next();
-		if (catch arg) return 1;
+		Arg arg = opter.next()!;
 		if (arg.type == EOF) break;
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				// This works more smoothly when bubbling up error
-				// inside fn which returns an optional.
-				Value! v = opter.value();
-				if (catch v) return 1;
-				int! n = v.as_int(uint);
-				if (catch n) return 1;
-				number = n;
+				opts.number = opter.value()!.as_int(uint)!;
 
 			case arg.is(LONG, "shout"):
-				shout = true;
+				opts.shout = true;
 
 			case arg.is(VALUE):
-				if (!thing.has_value) {
-					thing = { .value = arg.value.as_str(), .has_value = true };
+				if (!opts.thing.has_value) {
+					opts.thing = { .value = arg.value.as_str(), .has_value = true };
 				}
 
 			case arg.is(LONG, "help"):
 				io::printn("Usage: hello [-n|--number=NUM] [--shout] THING");
-				return 0;
 
 			default:
 				// always returns err; makes more sense when throwing using `!`
-				if (catch opter.err_unexpected_arg()) {
-					return 1;
-				}
+				return opter.err_unexpected_arg();
 		}
 	}
+}
 
-	io::eprintfn("number: %d", number);
-	io::eprintfn("shout: %s", shout);
-	io::eprintfn("thing: %s", thing.get() ?? "nil");
+fn int main(String[] args) {
+	Opts opts;
+	if (catch parse_cli(args, &opts)) {
+		return 1;
+	}
+
+	io::eprintfn("number: %d", opts.number);
+	io::eprintfn("shout: %s", opts.shout);
+	io::eprintfn("thing: %s", opts.thing.get() ?? "nil");
 
 	String out;
-	if (thing.has_value) {
-		out = thing.value;
+	if (opts.thing.has_value) {
+		out = opts.thing.value;
 	} else {
 		// copy needed because convert_ascii_to_upper is in-place
 		out = "missing argument THING".copy();
 	}
-	if (shout) out.convert_ascii_to_upper();
-	for (int i = 0; i < number; i += 1) {
+	if (opts.shout) out.convert_ascii_to_upper();
+	for (int i = 0; i < opts.number; i += 1) {
 		io::printn(out);
 	}
 	return 0;
