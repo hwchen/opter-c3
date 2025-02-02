@@ -1,0 +1,22 @@
+config default = "build"
+
+build "basic-cli" {
+    from ["examples/basic.c3", "opter.c3"]
+    run "c3c compile <in*> -o <out>"
+}
+
+task build {
+    build "basic-cli"
+}
+
+build "testrun" {
+    from glob "*.c3"
+    # Compiles and runs, ok for now because running tests is fast
+    run "c3c compile-test <in*> -o <out>"
+}
+
+task test {
+    let test_exe = "testrun"
+    build test_exe
+    run "<test_exe>"
+}
