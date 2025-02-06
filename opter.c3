@@ -228,10 +228,11 @@ fn String Value.as_str(value) {
 	return (String)value;
 }
 
-fn Path! Value.as_path(value) {
-	Path! path = path::new((String)value);
+fn Path! Value.as_path(value, Allocator alloc = allocator::heap(), PathEnv path_env = DEFAULT_PATH_ENV) {
+	Path! path = path::new((String)value, alloc, path_env);
 	if (catch err = path) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
+		return OpterError.ERROR?;
 	}
 	return path;
 }
