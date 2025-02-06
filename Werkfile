@@ -5,8 +5,14 @@ build "basic-cli" {
     run "c3c compile <in*> -o <out>"
 }
 
+build "fancy-cli" {
+    from ["examples/fancy.c3", "opter.c3", "fancy.c3"]
+    run "c3c compile <in*> -o <out>"
+}
+
 task build {
     build "basic-cli"
+    build "fancy-cli"
 }
 
 build "testrun" {
