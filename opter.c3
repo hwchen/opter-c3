@@ -230,7 +230,7 @@ fn String Value.as_str(value) {
 	return (String)value;
 }
 
-fn Path! Value.as_path(value, Allocator alloc = allocator::heap(), PathEnv path_env = DEFAULT_PATH_ENV) {
+fn Path! Value.as_path(value, Allocator alloc = allocator::heap(), PathEnv path_env = path::DEFAULT_PATH_ENV) {
 	Path! path = path::new((String)value, alloc, path_env);
 	if (catch err = path) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
@@ -491,4 +491,12 @@ fn void test_value_single_dash() @test {
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "-" });
 	assert_arg(opter.next()!!, { .type = EOF });
+}
+
+fn void test_value_as_path() @test {
+	String[] input = { "test", "--path", "my-path" };
+	Opter opter;
+	opter.init(input);
+	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "path" });
+	assert(opter.value()!!.as_path()!!.str_view() == path::new("my-path")!!.str_view());
 }
