@@ -15,6 +15,12 @@
 // Some basic value parsing (int, path) is currently implemented, and will automatically print a nice-ish error message.
 //
 // Open to suggestions for improved error handling API, as some might not want the automatic error message.
+//
+// Thought: I can store some data structure for error info, instead of just a string. Then when it's time to print the error message, user can either
+// - print canned message, which would be lazily generated from the error data
+// - use the error data to construct a custom message.
+//
+// This way, if user wants to create a custom message, they don't have to parse the error message. And this also is a good way to carry the error data in a sidecar, instead of trying to print the error message directly before bubbling up.
 
 module opter;
 import std::collections::list;
