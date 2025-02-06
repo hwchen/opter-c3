@@ -8,6 +8,8 @@
 // - ' ' or = or (unseparated short) for opt-value separator
 // - short -abc
 
+// Footgun: it's easy to get confused between Arg.value and Opter.value()
+
 // === Error Handling ===
 //
 // Opter is fairly simple, but will write a nice-ish error message before returning an error.
