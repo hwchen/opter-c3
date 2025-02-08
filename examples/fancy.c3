@@ -16,7 +16,9 @@ enum Flags: (String short_opt, String long_opt) {
 }
 
 fn void! parse_cli(String[] args, Opts* opts) {
-	opter::@parse_opts(args, Flags; Flags opt_type, Opter* opter, Arg arg) {
+	Opter opter;
+	opter.init(args);
+	opter::@parse_opts(&opter, Flags; Flags opt_type, Arg arg) {
 		switch (opt_type) {
 			case NUMBER:
 				opts.number = opter.value()!.as_int(uint)!;
