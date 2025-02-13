@@ -29,7 +29,6 @@ import std::collections::list;
 import std::core::string;
 import std::io;
 
-def ValueList = List(<Value>);
 distinct Value = String;
 
 struct Opter {
@@ -139,29 +138,32 @@ fn Value! Opter.value(&o) {
 	return (Value)res;
 }
 
-fn ValueList! Opter.values(&o, Allocator alloc = allocator::heap()) {
-	ValueList values;
-	// if called in middle of word, then return until the end of that word only.
-	if (o.idx_arg != 0) {
-		Value val = o.value()!!;
-		values.push((Value)val);
-		return values;
-	}
+fn Value[]! Opter.values(&o, Allocator alloc = allocator::heap()) {
+	@pool(alloc) {
+		List(<Value>) values;
+		values.temp_init();
+		// if called in middle of word, then return until the end of that word only.
+		if (o.idx_arg != 0) {
+			Value val = o.value()!!;
+			values.push((Value)val);
+			return values.to_new_array(alloc);
+		}
 
-	// returns all args until the end, or the next arg starts with '-'
-	String curr_arg = o.args[o.idx_args];
+		// returns all args until the end, or the next arg starts with '-'
+		String curr_arg = o.args[o.idx_args];
 
-	values.push((Value)curr_arg[o.idx_arg..]);
-	o.idx_args += 1;
-	o.idx_arg = 0;
-	while (o.idx_args < o.args.len) {
-		String curr_value = o.args[o.idx_args];
-		// breaks on short or long flag
-		if (curr_value[0] == '-') break;
-		values.push((Value)curr_value);
+		values.push((Value)curr_arg[o.idx_arg..]);
 		o.idx_args += 1;
-	}
-	return values;
+		o.idx_arg = 0;
+		while (o.idx_args < o.args.len) {
+			String curr_value = o.args[o.idx_args];
+			// breaks on short or long flag
+			if (curr_value[0] == '-') break;
+			values.push((Value)curr_value);
+			o.idx_args += 1;
+		}
+		return values.to_new_array(alloc);
+	};
 }
 
 fault OpterError {
@@ -387,7 +389,9 @@ fn void test_values_basic() @test {
 	String[] input = { "test", "foo", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values()!!.array_view() == { "foo", "bar" });
+	@pool() {
+		assert(opter.values(allocator::temp())!! == { "foo", "bar" });
+	};
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -395,7 +399,7 @@ fn void test_values_then_short() @test {
 	String[] input = { "test", "foo", "bar", "-a" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values()!!.array_view() == { "foo", "bar" });
+	assert(opter.values(allocator::temp())!! == { "foo", "bar" });
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'a' });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -404,7 +408,7 @@ fn void test_values_then_long() @test {
 	String[] input = { "test", "foo", "bar", "--baz" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values()!!.array_view() == { "foo", "bar" });
+	assert(opter.values(allocator::temp())!! == { "foo", "bar" });
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -414,7 +418,7 @@ fn void test_short_values() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
-	assert(opter.values()!!.array_view() == { "bar", "baz" });
+	assert(opter.values(allocator::temp())!! == { "bar", "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -423,7 +427,7 @@ fn void test_long_values() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
-	assert(opter.values()!!.array_view() == { "bar", "baz" });
+	assert(opter.values(allocator::temp())!! == { "bar", "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -433,7 +437,7 @@ fn void test_values_starting_condition() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
-	assert(opter.values()!!.array_view() == { "bar" });
+	assert(opter.values(allocator::temp())!! == { "bar" });
 }
 
 fn void test_positional_end_mark() @test {
@@ -472,7 +476,7 @@ fn void test_values_end_mark() @test {
 	String[] input = { "test", "foo", "--", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values()!!.array_view() == { "foo" });
+	assert(opter.values(allocator::temp())!! == { "foo" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
