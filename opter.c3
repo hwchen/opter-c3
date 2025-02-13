@@ -279,6 +279,7 @@ fn void test_short_no_value_calls_value() @test {
 	String[] input = { "test", "-n" };
 	Opter opter;
 	DString out; // write here instead of stdout for err
+	defer out.free();
 	opter.init(input, &out);
 	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
 	assert(!@ok(opter.value()));
@@ -323,6 +324,7 @@ fn void test_long_no_value_calls_value() @test {
 	String[] input = { "test", "--foo" };
 	Opter opter;
 	DString out; // write here instead of stdout for err
+	defer out.free();
 	opter.init(input, &out);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
 	assert(!@ok(opter.value()));
@@ -498,5 +500,6 @@ fn void test_value_as_path() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "path" });
-	assert(opter.value()!!.as_path()!!.str_view() == path::new("my-path")!!.str_view());
+	Path my_path = opter.value()!!.as_path(allocator::temp())!!;
+	assert(my_path.str_view() == "my-path");
 }
