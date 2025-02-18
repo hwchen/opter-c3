@@ -78,12 +78,10 @@ enum GlobalFlags: (String short_opt, String long_opt) {
 	SUBCOMMAND = {"", ""},
 }
 
-fn void! parse_cli(String[] args, Config* config) {
+fn void! parse_cli(Opter* opter, Config* config) {
 	ParsedOptimizations parsed;
 
-	Opter opter;
-	opter.init(args);
-	opter::@parse_opts(&opter, GlobalFlags; GlobalFlags opt_type, Arg arg) {
+	opter::@parse_opts(opter, GlobalFlags; GlobalFlags opt_type, Arg arg) {
 		switch (opt_type) {
 			case BATCH_OPS: parsed.batch_ops = true;
 			case ZERO_LOOP: parsed.zero_loop = true;
@@ -98,7 +96,7 @@ fn void! parse_cli(String[] args, Config* config) {
 			case SUBCOMMAND:
 				config.update_optimizations(parsed);
 				switch (arg.value.as_str()) {
-					case "compile": return parse_compile(&opter, config);
+					case "compile": return parse_compile(opter, config);
 				}
 		}
 	}!;
@@ -120,8 +118,11 @@ fn void! parse_compile(Opter* opter, Config* config) {
 
 // usage example: `optimization-cli -O1 --no-zero-loop compile mypath.c3`
 fn int main(String[] args) {
+	Opter opter;
+	opter.init(args);
 	Config config;
-	if (catch parse_cli(args, &config)) {
+	if (catch parse_cli(&opter, &config)) {
+		io::eprintfn("%s", opter.err_msg);
 		return 1;
 	}
 

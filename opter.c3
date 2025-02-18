@@ -38,14 +38,17 @@ struct Opter {
 	// index into the current arg
 	// for multiple chars and non-space separator
 	ulong idx_arg;
-	OutStream out;
+	// Allocator for error messages
+	Allocator alloc;
+	String err_msg;
 }
 
-fn void Opter.init(&opter, String[] args, OutStream out = io::stdout()) {
+fn void Opter.init(&opter, String[] args, Allocator alloc = allocator::heap()) {
 	opter.args = args;
 	opter.idx_args = 1;
 	opter.idx_arg = 0;
-	opter.out = out;
+	opter.alloc = alloc;
+	opter.err_msg = "";
 }
 
 fn Arg! Opter.next(&o) {
@@ -97,15 +100,14 @@ fn Arg! Opter.next(&o) {
 	} else {
 		// collected shorts in the middle of the arg
 		// If user wants a value following a short, they should call 'value()'
-		// There's two possible errors here, they should be the only ones in `next()`.
+		// There's one possible error here, it should be the only one in `next()`.
 
 		// o.idx_arg == curr_arg.len should be unreachable; if was at end of an arg,
 		// should have moved to the next
 		assert(o.idx_arg < curr_arg.len);
 		// TODO improve this error
 		if (curr_arg[0:2] == "--") {
-			o.write_err("attempted to parse a flag or positional argument, only values allowed afer '='");
-			return OpterError.ERROR?;
+			o.err_custom_msg("attempted to parse a flag or positional argument, only values allowed afer '='")!;
 		}
 		// TODO `-=` is ok, but `-o=` is not
 		arg.type = SHORT;
@@ -125,8 +127,7 @@ fn Arg! Opter.next(&o) {
 fn Value! Opter.value(&o) {
 	// Error if there's no more words to read.
 	if (o.idx_args >= o.args.len) {
-		o.write_err_missing_value();
-		return OpterError.ERROR?;
+		o.err_missing_value()!;
 	}
 
 	// If in the middle of an arg, reads the rest of it.
@@ -179,27 +180,42 @@ fn String Opter.last_processed_arg(&o) @private {
 	}
 }
 
-fn void Opter.write_err(&o, String msg) @private {
+fn void! Opter.err_custom_msg(&o, String m) @private {
 	String arg = o.last_processed_arg();
-	io::fprintfn(o.out, "Error at \"%s\": %s", arg, msg);
+	DString msg;
+	msg.new_init(allocator: o.alloc);
+	msg.appendf("Error at \"%s\": %s", arg, m);
+	o.err_msg = msg.str_view();
+	return OpterError.ERROR?;
 }
 
-fn void Opter.write_err_missing_value(&o) @private {
+fn void! Opter.err_missing_value(&o) @private {
 	String arg = o.last_processed_arg();
-	io::fprintfn(o.out, "Missing value after argument \"%s\"", arg);
+	DString msg;
+	msg.new_init(allocator: o.alloc);
+	msg.appendf("Missing value after argument \"%s\"", arg);
+	o.err_msg = msg.str_view();
+	return OpterError.ERROR?;
 }
 
 // User should call this in default case when switching on `Arg arg = parser.next()!`
 fn void! Opter.err_unexpected_arg(&o) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(o.out, "Found unexpected argument \"%s\"", arg);
+	DString msg;
+	msg.new_init(allocator: o.alloc);
+	msg.appendf("Found unexpected argument \"%s\"", arg);
+	o.err_msg = msg.str_view();
 	return OpterError.ERROR?;
 }
 
 // Currently used by users. But in future, Opter may handle parsing internally.
-fn void Opter.write_err_parse_value(&o, anyfault err) {
+fn void! Opter.create_err_parse_value(&o, anyfault err) {
 	String arg = o.last_processed_arg();
-	io::fprintfn(o.out, "Error parsing argument \"%s\": %s", arg, err);
+	DString msg;
+	msg.new_init(allocator: o.alloc);
+	msg.appendf("Error parsing argument \"%s\": %s", arg, err);
+	o.err_msg = msg.str_view();
+	return OpterError.ERROR?;
 }
 
 struct Arg {
