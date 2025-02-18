@@ -172,7 +172,11 @@ fault OpterError {
 
 // For use in error messages.
 fn String Opter.last_processed_arg(&o) @private {
-	return o.args[o.idx_args - 1];
+	if (o.idx_arg == 0) {
+		return o.args[o.idx_args - 1];
+	} else {
+		return o.args[o.idx_args][:o.idx_arg];
+	}
 }
 
 fn void Opter.write_err(&o, String msg) @private {
