@@ -78,7 +78,7 @@ enum GlobalFlags: (String short_opt, String long_opt) {
 	SUBCOMMAND = {"", ""},
 }
 
-fn void! parse_cli(Opter* opter, Config* config) {
+fn void? parse_cli(Opter* opter, Config* config) {
 	ParsedOptimizations parsed;
 
 	opter::@parse_opts(opter, GlobalFlags; GlobalFlags opt_type, Arg arg) {
@@ -107,7 +107,7 @@ enum CompileFlags: (String short_opt, String long_opt) {
 	FILEPATH = {"", ""},
 }
 
-fn void! parse_compile(Opter* opter, Config* config) {
+fn void? parse_compile(Opter* opter, Config* config) {
 	opter::@parse_opts(opter, CompileFlags; CompileFlags opt_type, Arg arg) {
 		switch (opt_type) {
 			case FILEPATH:
@@ -126,7 +126,7 @@ fn int main(String[] args) {
 		return 1;
 	}
 
-	io::printfn("%s", string::new_struct_to_str(config));
+	io::printfn("%s", string::tfrom_struct(config));
 
 	return 0;
 }

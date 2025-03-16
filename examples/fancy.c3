@@ -4,7 +4,7 @@ import std::io;
 import opter;
 
 struct Opts {
-	Maybe(<String>) thing;
+	Maybe{String} thing;
 	uint number;
 	bool shout;
 }
@@ -15,7 +15,7 @@ enum Flags: (String short_opt, String long_opt) {
 	SHOUT = {"", "shout"},
 }
 
-fn void! parse_cli(Opter* opter, Opts* opts) {
+fn void? parse_cli(Opter* opter, Opts* opts) {
 	opter::@parse_opts(opter, Flags; Flags opt_type, Arg arg) {
 		switch (opt_type) {
 			case NUMBER:
@@ -47,10 +47,11 @@ fn int main(String[] args) {
 	if (opts.thing.has_value) {
 		out = opts.thing.value;
 	} else {
-		// copy needed because convert_ascii_to_upper is in-place
-		out = "missing argument THING".copy();
+		out = "missing argument THING";
 	}
-	if (opts.shout) out.convert_ascii_to_upper();
+	if (opts.shout) {
+		out = out.to_upper_tcopy();
+	}
 	for (int i = 0; i < opts.number; i += 1) {
 		io::printn(out);
 	}

@@ -29,7 +29,7 @@ import std::collections::list;
 import std::core::string;
 import std::io;
 
-distinct Value = String;
+typedef Value = String;
 
 struct Opter {
 	String[] args;
@@ -51,7 +51,7 @@ fn void Opter.init(&opter, String[] args, Allocator alloc = allocator::heap()) {
 	opter.err_msg = "";
 }
 
-fn Arg! Opter.next(&o) {
+fn Arg? Opter.next(&o) {
 	// Valid end of args
 	if (o.idx_args == o.args.len) return { .type = EOF };
 
@@ -124,7 +124,7 @@ fn Arg! Opter.next(&o) {
 
 // Always reads to the end of the word. So things like
 // -aone-btwo are read as "-a" "one-btwo" and not "-a" "one" "-b" "two"
-fn Value! Opter.value(&o) {
+fn Value? Opter.value(&o) {
 	// Error if there's no more words to read.
 	if (o.idx_args >= o.args.len) {
 		o.err_missing_value()!;
@@ -139,15 +139,15 @@ fn Value! Opter.value(&o) {
 	return (Value)res;
 }
 
-fn Value[]! Opter.values(&o, Allocator alloc = allocator::heap()) {
+fn Value[]? Opter.values(&o, Allocator alloc = allocator::heap()) {
 	@pool(alloc) {
-		List(<Value>) values;
-		values.temp_init();
+		List{Value} values;
+		values.tinit();
 		// if called in middle of word, then return until the end of that word only.
 		if (o.idx_arg != 0) {
 			Value val = o.value()!!;
 			values.push((Value)val);
-			return values.to_new_array(alloc);
+			return values.to_array(alloc);
 		}
 
 		// returns all args until the end, or the next arg starts with '-'
@@ -163,13 +163,11 @@ fn Value[]! Opter.values(&o, Allocator alloc = allocator::heap()) {
 			values.push((Value)curr_value);
 			o.idx_args += 1;
 		}
-		return values.to_new_array(alloc);
+		return values.to_array(alloc);
 	};
 }
 
-fault OpterError {
-	ERROR,
-}
+faultdef OPTER_ERROR;
 
 // For use in error messages.
 fn String Opter.last_processed_arg(&o) @private {
@@ -180,42 +178,42 @@ fn String Opter.last_processed_arg(&o) @private {
 	}
 }
 
-fn void! Opter.err_custom_msg(&o, String m) @private {
+fn void? Opter.err_custom_msg(&o, String m) @private {
 	String arg = o.last_processed_arg();
 	DString msg;
-	msg.new_init(allocator: o.alloc);
+	msg.init(allocator: o.alloc);
 	msg.appendf("Error at \"%s\": %s", arg, m);
 	o.err_msg = msg.str_view();
-	return OpterError.ERROR?;
+	return OPTER_ERROR?;
 }
 
-fn void! Opter.err_missing_value(&o) @private {
+fn void? Opter.err_missing_value(&o) @private {
 	String arg = o.last_processed_arg();
 	DString msg;
-	msg.new_init(allocator: o.alloc);
+	msg.init(allocator: o.alloc);
 	msg.appendf("Missing value after argument \"%s\"", arg);
 	o.err_msg = msg.str_view();
-	return OpterError.ERROR?;
+	return OPTER_ERROR?;
 }
 
 // User should call this in default case when switching on `Arg arg = parser.next()!`
-fn void! Opter.err_unexpected_arg(&o) {
+fn void? Opter.err_unexpected_arg(&o) {
 	String arg = o.last_processed_arg();
 	DString msg;
-	msg.new_init(allocator: o.alloc);
+	msg.init(allocator: o.alloc);
 	msg.appendf("Found unexpected argument \"%s\"", arg);
 	o.err_msg = msg.str_view();
-	return OpterError.ERROR?;
+	return OPTER_ERROR?;
 }
 
 // Currently used by users. But in future, Opter may handle parsing internally.
-fn void! Opter.create_err_parse_value(&o, anyfault err) {
+fn void? Opter.create_err_parse_value(&o, fault err) {
 	String arg = o.last_processed_arg();
 	DString msg;
-	msg.new_init(allocator: o.alloc);
+	msg.init(allocator: o.alloc);
 	msg.appendf("Error parsing argument \"%s\": %s", arg, err);
 	o.err_msg = msg.str_view();
-	return OpterError.ERROR?;
+	return OPTER_ERROR?;
 }
 
 struct Arg {
@@ -235,7 +233,7 @@ enum ArgType {
 }
 
 macro bool Arg.is(&arg, ArgType $type, ...) {
-	$switch ($type)
+	$switch ($type):
 		$case SHORT:
 			$assert($vacount == 1);
 			return arg.type == SHORT && $vaexpr[0] == arg.short_name;
@@ -252,11 +250,11 @@ fn String Value.as_str(value) {
 	return (String)value;
 }
 
-fn Path! Value.as_path(value, Allocator alloc = allocator::heap(), PathEnv path_env = path::DEFAULT_PATH_ENV) {
-	Path! path = path::new((String)value, alloc, path_env);
+fn Path? Value.as_path(value, Allocator alloc = allocator::heap(), PathEnv path_env = path::DEFAULT_ENV) {
+	Path? path = path::new(alloc, (String)value, path_env);
 	if (catch err = path) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
-		return OpterError.ERROR?;
+		return OPTER_ERROR?;
 	}
 	return path;
 }
@@ -265,10 +263,10 @@ macro Value.as_int(value, $Type, int base = 10) {
 	String s = (String)value;
 	// calling to_integer twice is weird, working around some weirdness
 	// where $Type! n = s.to_integer($Type, base); gives
-	// `Error: It is not possible to cast from 'uint!' to 'uint'.` when called with uint
+	// `Error: It is not possible to cast from 'uint?' to 'uint'.` when called with uint
 	if (catch err = s.to_integer($Type, base)) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
-		return OpterError.ERROR?;
+		return OPTER_ERROR?;
 	}
 	return s.to_integer($Type, base)!!;
 }
@@ -293,17 +291,15 @@ fn void test_short_no_value() @test {
 	String[] input = { "test", "-n" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_short_no_value_calls_value() @test {
 	String[] input = { "test", "-n" };
 	Opter opter;
-	DString out; // write here instead of stdout for err
-	defer out.free();
-	opter.init(input, &out);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	opter.init(input, allocator::temp());
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
 	assert(!@ok(opter.value()));
 }
 
@@ -311,7 +307,7 @@ fn void test_short_with_value() @test {
 	String[] input = { "test", "-n" "one"};
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
 	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -320,7 +316,7 @@ fn void test_short_with_value_no_separator() @test {
 	String[] input = { "test", "-none"};
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
 	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -329,7 +325,7 @@ fn void test_short_with_value_eq_separator() @test {
 	String[] input = { "test", "-n=one"};
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
 	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -338,17 +334,15 @@ fn void test_long_no_value() @test {
 	String[] input = { "test", "--number" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "number" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "number" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
 fn void test_long_no_value_calls_value() @test {
 	String[] input = { "test", "--foo" };
 	Opter opter;
-	DString out; // write here instead of stdout for err
-	defer out.free();
-	opter.init(input, &out);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	opter.init(input, allocator::temp());
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert(!@ok(opter.value()));
 }
 
@@ -356,7 +350,7 @@ fn void test_long_with_value() @test {
 	String[] input = { "test", "--foo", "one"};
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -365,7 +359,7 @@ fn void test_long_with_value_eq_separator() @test {
 	String[] input = { "test", "--foo=one"};
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert(opter.value()!!.as_str() == "one");
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -374,7 +368,7 @@ fn void test_positional() @test {
 	String[] input = { "test", "thing" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = VALUE, .long_name = "thing" });
+	assert_arg(opter.next()!!, (Arg) { .type = VALUE, .long_name = "thing" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -382,8 +376,8 @@ fn void test_short_then_another() @test {
 	String[] input = { "test", "-n", "-o"};
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'n' });
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'o' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'o' });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -391,8 +385,8 @@ fn void test_long_then_another() @test {
 	String[] input = { "test", "--foo", "--bar" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "bar" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "bar" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -400,8 +394,8 @@ fn void test_positional_then_another() @test {
 	String[] input = { "test", "foo", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
-	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "bar" });
+	assert_arg(opter.next()!!, (Arg) { .type = VALUE, .value = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = VALUE, .value = "bar" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -420,7 +414,7 @@ fn void test_values_then_short() @test {
 	Opter opter;
 	opter.init(input);
 	assert(opter.values(allocator::temp())!! == { "foo", "bar" });
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'a' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'a' });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -429,7 +423,7 @@ fn void test_values_then_long() @test {
 	Opter opter;
 	opter.init(input);
 	assert(opter.values(allocator::temp())!! == { "foo", "bar" });
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "baz" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -437,7 +431,7 @@ fn void test_short_values() @test {
 	String[] input = { "test", "-f", "bar", "baz" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'f' });
 	assert(opter.values(allocator::temp())!! == { "bar", "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -446,7 +440,7 @@ fn void test_long_values() @test {
 	String[] input = { "test", "--foo", "bar", "baz" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert(opter.values(allocator::temp())!! == { "bar", "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -456,7 +450,7 @@ fn void test_values_starting_condition() @test {
 	String[] input = { "test", "-fbar", "baz", "one" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'f' });
 	assert(opter.values(allocator::temp())!! == { "bar" });
 }
 
@@ -464,7 +458,7 @@ fn void test_positional_end_mark() @test {
 	String[] input = { "test", "foo", "--", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = VALUE, .value = "foo" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -472,7 +466,7 @@ fn void test_short_end_mark() @test {
 	String[] input = { "test", "-f", "--", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'f' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'f' });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -480,7 +474,7 @@ fn void test_long_end_mark() @test {
 	String[] input = { "test", "--foo", "--", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -504,10 +498,10 @@ fn void test_short_cluster() @test {
 	String[] input = { "test", "-abc", "--foo" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'a' });
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'b' });
-	assert_arg(opter.next()!!, Arg { .type = SHORT, .short_name = 'c' });
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "foo" });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'a' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'b' });
+	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'c' });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -515,7 +509,7 @@ fn void test_value_single_dash() @test {
 	String[] input = { "test", "-" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = VALUE, .value = "-" });
+	assert_arg(opter.next()!!, (Arg) { .type = VALUE, .value = "-" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -523,7 +517,7 @@ fn void test_value_as_path() @test {
 	String[] input = { "test", "--path", "my-path" };
 	Opter opter;
 	opter.init(input);
-	assert_arg(opter.next()!!, Arg { .type = LONG, .long_name = "path" });
+	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "path" });
 	Path my_path = opter.value()!!.as_path(allocator::temp())!!;
 	assert(my_path.str_view() == "my-path");
 }
