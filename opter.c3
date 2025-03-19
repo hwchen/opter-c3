@@ -140,7 +140,7 @@ fn Value? Opter.value(&o) {
 }
 
 fn Value[]? Opter.values(&o, Allocator alloc = allocator::heap()) {
-	@pool(alloc) {
+	@pool() {
 		List{Value} values;
 		values.tinit();
 		// if called in middle of word, then return until the end of that word only.
