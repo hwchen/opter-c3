@@ -1,4 +1,6 @@
-config default = "build"
+default target = "build"
+# currently doesn't work, use `just build` which passes `--jobs`
+#default jobs = 1
 
 build "basic-cli" {
     from ["examples/basic.c3", "opter.c3"]
@@ -16,9 +18,7 @@ build "optimization-cli" {
 }
 
 task build {
-    build "basic-cli"
-    build "fancy-cli"
-    build "optimization-cli"
+    build ["basic-cli", "fancy-cli", "optimization-cli"]
 }
 
 build "testrun" {
