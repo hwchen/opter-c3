@@ -1,6 +1,5 @@
 default target = "build"
-# currently doesn't work, use `just build` which passes `--jobs`
-#default jobs = 1
+default jobs = 1
 
 build "basic-cli" {
     from ["examples/basic.c3", "opter.c3"]
