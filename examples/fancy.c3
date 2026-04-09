@@ -10,9 +10,9 @@ struct Opts {
 }
 
 enum Flags: (String short_opt, String long_opt) {
-	THING = {"", ""},
-	NUMBER = {"n", "number"},
-	SHOUT = {"", "shout"},
+	THING {"", ""},
+	NUMBER {"n", "number"},
+	SHOUT {"", "shout"},
 }
 
 fn void? parse_cli(Opter* opter, Opts* opts) {

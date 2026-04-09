@@ -66,16 +66,16 @@ struct ParsedOptimizations {
 }
 
 enum GlobalFlags: (String short_opt, String long_opt) {
-	BATCH_OPS = {"", "batch-ops"},
-	ZERO_LOOP = {"", "zero-loop"},
-	REMOVE_DEAD = {"", "remove-dead"},
-	REDUCE_LOOPS = {"", "reduce-loops"},
-	NO_BATCH_OPS = {"", "no-batch-ops"},
-	NO_ZERO_LOOP = {"", "no-zero-loop"},
-	NO_REMOVE_DEAD = {"", "no-remove-dead"},
-	NO_REDUCE_LOOPS = {"", "no-reduce-loops"},
-	LEVEL = {"O", ""},
-	SUBCOMMAND = {"", ""},
+	BATCH_OPS {"", "batch-ops"},
+	ZERO_LOOP {"", "zero-loop"},
+	REMOVE_DEAD {"", "remove-dead"},
+	REDUCE_LOOPS {"", "reduce-loops"},
+	NO_BATCH_OPS {"", "no-batch-ops"},
+	NO_ZERO_LOOP {"", "no-zero-loop"},
+	NO_REMOVE_DEAD {"", "no-remove-dead"},
+	NO_REDUCE_LOOPS {"", "no-reduce-loops"},
+	LEVEL {"O", ""},
+	SUBCOMMAND {"", ""},
 }
 
 fn void? parse_cli(Opter* opter, Config* config) {
@@ -104,7 +104,7 @@ fn void? parse_cli(Opter* opter, Config* config) {
 }
 
 enum CompileFlags: (String short_opt, String long_opt) {
-	FILEPATH = {"", ""},
+	FILEPATH {"", ""},
 }
 
 fn void? parse_compile(Opter* opter, Config* config) {

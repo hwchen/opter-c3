@@ -29,7 +29,7 @@ import std::collections::list;
 import std::core::string;
 import std::io;
 
-typedef Value = String;
+alias Value = String;
 
 struct Opter {
 	String[] args;
@@ -43,7 +43,7 @@ struct Opter {
 	String err_msg;
 }
 
-fn void Opter.init(&opter, String[] args, Allocator alloc = allocator::heap()) {
+fn void Opter.init(&opter, String[] args, Allocator alloc = mem) {
 	opter.args = args;
 	opter.idx_args = 1;
 	opter.idx_arg = 0;
@@ -139,7 +139,7 @@ fn Value? Opter.value(&o) {
 	return (Value)res;
 }
 
-fn Value[]? Opter.values(&o, Allocator alloc = allocator::heap()) {
+fn Value[]? Opter.values(&o, Allocator alloc = mem) {
 	@pool() {
 		List{Value} values;
 		values.tinit();
@@ -170,7 +170,7 @@ fn Value[]? Opter.values(&o, Allocator alloc = allocator::heap()) {
 faultdef OPTER_ERROR;
 
 // For use in error messages.
-fn String Opter.last_processed_arg(&o) @private {
+fn String Opter.last_processed_arg(&o) {
 	if (o.idx_arg == 0) {
 		return o.args[o.idx_args - 1];
 	} else {
@@ -178,22 +178,22 @@ fn String Opter.last_processed_arg(&o) @private {
 	}
 }
 
-fn void? Opter.err_custom_msg(&o, String m) @private {
+fn void? Opter.err_custom_msg(&o, String m) {
 	String arg = o.last_processed_arg();
 	DString msg;
 	msg.init(allocator: o.alloc);
 	msg.appendf("Error at \"%s\": %s", arg, m);
 	o.err_msg = msg.str_view();
-	return OPTER_ERROR?;
+	return OPTER_ERROR~;
 }
 
-fn void? Opter.err_missing_value(&o) @private {
+fn void? Opter.err_missing_value(&o) {
 	String arg = o.last_processed_arg();
 	DString msg;
 	msg.init(allocator: o.alloc);
 	msg.appendf("Missing value after argument \"%s\"", arg);
 	o.err_msg = msg.str_view();
-	return OPTER_ERROR?;
+	return OPTER_ERROR~;
 }
 
 // User should call this in default case when switching on `Arg arg = parser.next()!`
@@ -203,7 +203,7 @@ fn void? Opter.err_unexpected_arg(&o) {
 	msg.init(allocator: o.alloc);
 	msg.appendf("Found unexpected argument \"%s\"", arg);
 	o.err_msg = msg.str_view();
-	return OPTER_ERROR?;
+	return OPTER_ERROR~;
 }
 
 // Currently used by users. But in future, Opter may handle parsing internally.
@@ -213,7 +213,7 @@ fn void? Opter.create_err_parse_value(&o, fault err) {
 	msg.init(allocator: o.alloc);
 	msg.appendf("Error parsing argument \"%s\": %s", arg, err);
 	o.err_msg = msg.str_view();
-	return OPTER_ERROR?;
+	return OPTER_ERROR~;
 }
 
 struct Arg {
@@ -250,11 +250,11 @@ fn String Value.as_str(value) {
 	return (String)value;
 }
 
-fn Path? Value.as_path(value, Allocator alloc = allocator::heap(), PathEnv path_env = path::DEFAULT_ENV) {
+fn Path? Value.as_path(value, Allocator alloc = mem, PathEnv path_env = path::DEFAULT_ENV) {
 	Path? path = path::new(alloc, (String)value, path_env);
 	if (catch err = path) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
-		return OPTER_ERROR?;
+		return OPTER_ERROR~;
 	}
 	return path;
 }
@@ -266,7 +266,7 @@ macro Value.as_int(value, $Type, int base = 10) {
 	// `Error: It is not possible to cast from 'uint?' to 'uint'.` when called with uint
 	if (catch err = s.to_integer($Type, base)) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
-		return OPTER_ERROR?;
+		return OPTER_ERROR~;
 	}
 	return s.to_integer($Type, base)!!;
 }
@@ -274,7 +274,7 @@ macro Value.as_int(value, $Type, int base = 10) {
 
 // Tests
 
-fn void assert_arg(Arg found, Arg expected) @private {
+fn void assert_arg(Arg found, Arg expected) {
 	assert(found.type == expected.type, "Found %s, expected %s", found.type, expected.type);
 	switch (found.type) {
 		case SHORT:
@@ -298,7 +298,7 @@ fn void test_short_no_value() @test {
 fn void test_short_no_value_calls_value() @test {
 	String[] input = { "test", "-n" };
 	Opter opter;
-	opter.init(input, allocator::temp());
+	opter.init(input, tmem);
 	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'n' });
 	assert(!@ok(opter.value()));
 }
@@ -341,7 +341,7 @@ fn void test_long_no_value() @test {
 fn void test_long_no_value_calls_value() @test {
 	String[] input = { "test", "--foo" };
 	Opter opter;
-	opter.init(input, allocator::temp());
+	opter.init(input, tmem);
 	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
 	assert(!@ok(opter.value()));
 }
@@ -404,7 +404,7 @@ fn void test_values_basic() @test {
 	Opter opter;
 	opter.init(input);
 	@pool() {
-		assert(opter.values(allocator::temp())!! == { "foo", "bar" });
+		assert(opter.values(tmem)!! == { "foo", "bar" });
 	};
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -413,7 +413,7 @@ fn void test_values_then_short() @test {
 	String[] input = { "test", "foo", "bar", "-a" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values(allocator::temp())!! == { "foo", "bar" });
+	assert(opter.values(tmem)!! == { "foo", "bar" });
 	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'a' });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -422,7 +422,7 @@ fn void test_values_then_long() @test {
 	String[] input = { "test", "foo", "bar", "--baz" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values(allocator::temp())!! == { "foo", "bar" });
+	assert(opter.values(tmem)!! == { "foo", "bar" });
 	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
@@ -432,7 +432,7 @@ fn void test_short_values() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'f' });
-	assert(opter.values(allocator::temp())!! == { "bar", "baz" });
+	assert(opter.values(tmem)!! == { "bar", "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -441,7 +441,7 @@ fn void test_long_values() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "foo" });
-	assert(opter.values(allocator::temp())!! == { "bar", "baz" });
+	assert(opter.values(tmem)!! == { "bar", "baz" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -451,7 +451,7 @@ fn void test_values_starting_condition() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, (Arg) { .type = SHORT, .short_name = 'f' });
-	assert(opter.values(allocator::temp())!! == { "bar" });
+	assert(opter.values(tmem)!! == { "bar" });
 }
 
 fn void test_positional_end_mark() @test {
@@ -490,7 +490,7 @@ fn void test_values_end_mark() @test {
 	String[] input = { "test", "foo", "--", "bar" };
 	Opter opter;
 	opter.init(input);
-	assert(opter.values(allocator::temp())!! == { "foo" });
+	assert(opter.values(tmem)!! == { "foo" });
 	assert_arg(opter.next()!!, { .type = EOF });
 }
 
@@ -518,6 +518,6 @@ fn void test_value_as_path() @test {
 	Opter opter;
 	opter.init(input);
 	assert_arg(opter.next()!!, (Arg) { .type = LONG, .long_name = "path" });
-	Path my_path = opter.value()!!.as_path(allocator::temp())!!;
+	Path my_path = opter.value()!!.as_path(tmem)!!;
 	assert(my_path.str_view() == "my-path");
 }
