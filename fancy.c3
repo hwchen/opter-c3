@@ -12,7 +12,7 @@ macro @parse_opts(Opter* opter, $OptType; @body(opt_type, Arg arg)) {
 
 		$OptType opt_type;
 		bool matched;
-		foreach LOOP: (variant : $OptType.values) {
+		foreach LOOP: (variant : $OptType::values) {
 			switch {
 				case variant.short_opt.len > 0 && arg.is(SHORT, variant.short_opt[0]):
 				case arg.is(LONG, variant.long_opt):
