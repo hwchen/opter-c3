@@ -5,7 +5,7 @@ import opter;
 
 struct Opts {
 	Maybe{String} thing;
-	uint number;
+	int number;
 	bool shout;
 }
 
@@ -16,7 +16,7 @@ fn void? parse_cli(Opter* opter, Opts* opts) {
 		switch {
 			case arg.is(SHORT, 'n'):
 			case arg.is(LONG, "number"):
-				opts.number = opter.value()!.as_int(uint)!;
+				opts.number = opter.value()!.as_int(int)!;
 
 			case arg.is(LONG, "shout"):
 				opts.shout = true;

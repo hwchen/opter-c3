@@ -5,7 +5,7 @@ import opter;
 
 struct Opts {
 	Maybe{String} thing;
-	uint number;
+	int number;
 	bool shout;
 }
 
@@ -19,7 +19,7 @@ fn void? parse_cli(Opter* opter, Opts* opts) {
 	opter::@parse_opts(opter, Flags; Flags opt_type, Arg arg) {
 		switch (opt_type) {
 			case NUMBER:
-				opts.number = opter.value()!.as_int(uint)!;
+				opts.number = opter.value()!.as_int(int)!;
 			case SHOUT:
 				opts.shout = true;
 			case THING:
