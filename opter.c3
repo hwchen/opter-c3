@@ -250,7 +250,7 @@ fn String Value.as_str(value) {
 	return (String)value;
 }
 
-fn Path? Value.as_path(value, Allocator alloc = mem, PathEnv path_env = path::DEFAULT_ENV) {
+fn Path? Value.as_path(value, Allocator alloc = mem) {
 	Path? path = path::new(alloc, (String)value);
 	if (catch err = path) {
 		io::fprintfn(io::stdout(), "Error parsing argument \"%s\": %s", value, err);
